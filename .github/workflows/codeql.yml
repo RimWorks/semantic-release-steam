@@ -1,0 +1,21 @@
+name: codeql
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '19 6 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  codeql:
+    uses: RimWorks/mod-ci/.github/workflows/codeql.yml@d6261858b6b74c0cd3ca03c6402c954d58ac7fee # v1.5.1
+    permissions:
+      contents: read
+      security-events: write
+    with:
+      languages: '["javascript-typescript", "actions"]'

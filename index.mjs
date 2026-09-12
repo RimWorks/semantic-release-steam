@@ -19,6 +19,40 @@ function resolveModMetadata(mod, target) {
   };
 }
 
+// the context overrides are the seam the tests inject through; real runs get the imports.
+function resolveOverrides(context) {
+  return {
+    buildDescription: context.buildSteamDescription ?? buildSteamDescription,
+    stageContent: context.stageModContent ?? stageModContent,
+    uploadItem: context.uploadWorkshopItem ?? uploadWorkshopItem,
+    compile: context.compileReadme ?? compileReadme,
+    writeCompiled: context.writeCompiledReadme ?? writeCompiledReadme,
+  };
+}
+
+function compileModReadme(pluginConfig, modPath, overrides) {
+  const compileArgs = {
+    modPath,
+    header: pluginConfig.descriptionHeader ?? '',
+    footer: pluginConfig.descriptionFooter ?? '',
+    assetDirNameTransform: pluginConfig.assetDirNameTransform,
+  };
+
+  return pluginConfig.outputReadme ? overrides.writeCompiled(compileArgs) : overrides.compile(compileArgs);
+}
+
+function describeDryRun({ mod, target, publishedFileId, version, description, metadata }) {
+  const details = [
+    `changenote: ${version}`,
+    `description: ${description.length} chars`,
+    metadata.title ? `title: "${metadata.title}"` : null,
+    metadata.visibility !== undefined ? `visibility: ${metadata.visibility}` : null,
+    metadata.tags?.length ? `tags: [${metadata.tags.join(', ')}]` : null,
+  ].filter(Boolean);
+
+  return `[dry-run] would publish ${mod.name} to ${target} workshop item ${publishedFileId} (${details.join(', ')})`;
+}
+
 export async function verifyConditions(pluginConfig, context) {
   await verifySteamPublishConfig({
     env: context.env,
@@ -44,33 +78,16 @@ export async function publish(pluginConfig, context) {
 
   const cwd = context.cwd ?? process.cwd();
   const dryRun = isDryRun(context);
-  const buildDescription = context.buildSteamDescription ?? buildSteamDescription;
-  const stageContent = context.stageModContent ?? stageModContent;
-  const uploadItem = context.uploadWorkshopItem ?? uploadWorkshopItem;
-  const compile = context.compileReadme ?? compileReadme;
-  const writeCompiled = context.writeCompiledReadme ?? writeCompiledReadme;
+  const overrides = resolveOverrides(context);
   const assetBaseUrl = pluginConfig.assetBaseUrlTemplate
     ? pluginConfig.assetBaseUrlTemplate.replace('{branch}', context.branch.name)
     : '';
 
   for (const mod of state.mods) {
     const modPath = resolve(cwd, mod.path);
+    const markdown = await compileModReadme(pluginConfig, modPath, overrides);
 
-    const compileArgs = {
-      modPath,
-      header: pluginConfig.descriptionHeader ?? '',
-      footer: pluginConfig.descriptionFooter ?? '',
-      assetDirNameTransform: pluginConfig.assetDirNameTransform,
-    };
-
-    let markdown;
-    if (pluginConfig.outputReadme) {
-      markdown = await writeCompiled(compileArgs);
-    } else {
-      markdown = await compile(compileArgs);
-    }
-
-    const description = await buildDescription({
+    const description = await overrides.buildDescription({
       modPath,
       markdown,
       assetBaseUrl,
@@ -82,19 +99,21 @@ export async function publish(pluginConfig, context) {
 
     if (dryRun) {
       context.logger.log(
-        `[dry-run] would publish ${mod.name} to ${state.target} workshop item ${publishedFileId} ` +
-          `(changenote: ${context.nextRelease.version}, description: ${description.length} chars` +
-          (metadata.title ? `, title: "${metadata.title}"` : '') +
-          (metadata.visibility !== undefined ? `, visibility: ${metadata.visibility}` : '') +
-          (metadata.tags?.length ? `, tags: [${metadata.tags.join(', ')}]` : '') +
-          ')',
+        describeDryRun({
+          mod,
+          target: state.target,
+          publishedFileId,
+          version: context.nextRelease.version,
+          description,
+          metadata,
+        }),
       );
       continue;
     }
 
-    const stagePath = await stageContent({ modPath });
+    const stagePath = await overrides.stageContent({ modPath });
 
-    await uploadItem({
+    await overrides.uploadItem({
       steamCmdPath: context.env.STEAMCMD_PATH ?? '~/steamcmd/steamcmd.sh',
       steamUsername: context.env.STEAM_USERNAME,
       steamConfigPath: state.steamConfigPath,
