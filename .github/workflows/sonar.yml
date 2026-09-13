@@ -1,0 +1,19 @@
+name: sonar
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    uses: RimWorks/mod-ci/.github/workflows/sonar-scan.yml@213a7ada24d3670e1cec89fbcb02c810cdb868e1 # v1.6.1
+    with:
+      project-key: RimWorks_semantic-release-steam
+      exclusions: tests/fixtures/**,coverage/**
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
