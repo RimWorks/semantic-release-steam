@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   scan:
-    uses: RimWorks/mod-ci/.github/workflows/sonar-scan.yml@213a7ada24d3670e1cec89fbcb02c810cdb868e1 # v1.6.1
+    uses: RimWorks/mod-ci/.github/workflows/sonar-scan.yml@f516504a51b1c916489710c2c95f6bbb41e8f7f1 # v1.10.0
     with:
       project-key: RimWorks_semantic-release-steam
       exclusions: tests/fixtures/**,coverage/**
