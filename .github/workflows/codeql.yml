@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   codeql:
-    uses: RimWorks/mod-ci/.github/workflows/codeql.yml@f516504a51b1c916489710c2c95f6bbb41e8f7f1 # v1.10.0
+    uses: RimWorks/mod-ci/.github/workflows/codeql.yml@v1
     permissions:
       contents: read
       security-events: write
