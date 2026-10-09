@@ -1,6 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { applyWorkshopTags } from '../lib/workshop-tags.mjs';
+import { EventEmitter } from 'node:events';
+import {
+  applyWorkshopTags,
+  canPollForGuardApproval,
+  logOffAndWait,
+  connectWithTimeout,
+  verifyPublishedTags,
+} from '../lib/workshop-tags.mjs';
 
 function failingFn(label) {
   return async () => { throw new Error(`${label} should not be called`); };
@@ -186,6 +193,119 @@ test('disconnects after a fully successful run', async () => {
   });
 
   assert.equal(disconnectCalls.length, 1);
+});
+
+test('canPollForGuardApproval is true for a device-confirmation guard', () => {
+  assert.equal(canPollForGuardApproval([{ type: 4 }]), true);
+});
+
+test('canPollForGuardApproval is true for an email-confirmation guard', () => {
+  assert.equal(canPollForGuardApproval([{ type: 5 }]), true);
+});
+
+test('canPollForGuardApproval is false when only code-based guards are offered', () => {
+  assert.equal(canPollForGuardApproval([{ type: 2 }, { type: 3 }]), false);
+});
+
+test('canPollForGuardApproval is false when no guard actions are offered', () => {
+  assert.equal(canPollForGuardApproval(undefined), false);
+  assert.equal(canPollForGuardApproval([]), false);
+});
+
+test('logOffAndWait resolves immediately when the session is already dead', async () => {
+  const user = new EventEmitter();
+  user.steamID = null;
+  user.logOff = () => { throw new Error('logOff should not be called on a dead session'); };
+
+  await logOffAndWait(user);
+});
+
+test('logOffAndWait calls logOff and waits for the disconnected event on a live session', async () => {
+  const user = new EventEmitter();
+  user.steamID = 'live';
+  let logOffCalled = false;
+  user.logOff = () => { logOffCalled = true; setImmediate(() => user.emit('disconnected')); };
+
+  await logOffAndWait(user);
+
+  assert.equal(logOffCalled, true);
+});
+
+test('logOffAndWait falls back to resolving if disconnected never fires', async () => {
+  const user = new EventEmitter();
+  user.steamID = 'live';
+  user.logOff = () => {};
+
+  await logOffAndWait(user, 20);
+});
+
+test('connectWithTimeout resolves on loggedOn without waiting for the timeout', async () => {
+  const user = new EventEmitter();
+  user.logOff = () => { throw new Error('logOff should not be called when loggedOn fires'); };
+
+  await connectWithTimeout(user, 5000, () => { setImmediate(() => user.emit('loggedOn')); });
+
+  assert.equal(user.listenerCount('loggedOn'), 0);
+  assert.equal(user.listenerCount('error'), 0);
+});
+
+test('connectWithTimeout rejects, logs off, and removes its listeners on a timeout', async () => {
+  const user = new EventEmitter();
+  let logOffCalled = false;
+  user.logOff = () => { logOffCalled = true; };
+
+  await assert.rejects(
+    () => connectWithTimeout(user, 20, () => {}),
+    /Steam CM connection timed out/,
+  );
+
+  assert.equal(logOffCalled, true);
+  assert.equal(user.listenerCount('loggedOn'), 0);
+  assert.equal(user.listenerCount('error'), 0);
+});
+
+test('connectWithTimeout rejects on an error event without waiting for the timeout', async () => {
+  const user = new EventEmitter();
+  user.logOff = () => {};
+
+  await assert.rejects(
+    () => connectWithTimeout(user, 5000, () => { setImmediate(() => user.emit('error', new Error('boom'))); }),
+    /boom/,
+  );
+
+  assert.equal(user.listenerCount('loggedOn'), 0);
+  assert.equal(user.listenerCount('error'), 0);
+});
+
+test('verifyPublishedTags retries a stale read before reporting a mismatch', async () => {
+  let calls = 0;
+  const user = {
+    getPublishedFileDetails: (ids, cb) => {
+      calls += 1;
+      cb(null, { [ids[0]]: { tags: calls === 1 ? [{ tag: 'Old' }] : [{ tag: 'QoL' }] } });
+    },
+  };
+
+  const result = await verifyPublishedTags(user, '1', ['QoL'], 3, 1);
+
+  assert.equal(calls, 2);
+  assert.equal(result.matches, true);
+});
+
+test('verifyPublishedTags gives up and reports the mismatch after exhausting its retries', async () => {
+  let calls = 0;
+  const user = {
+    getPublishedFileDetails: (ids, cb) => {
+      calls += 1;
+      cb(null, { [ids[0]]: { tags: [{ tag: 'Old' }] } });
+    },
+  };
+
+  const result = await verifyPublishedTags(user, '1', ['QoL'], 2, 1);
+
+  assert.equal(calls, 2);
+  assert.equal(result.matches, false);
+  assert.deepEqual(result.actual, ['old']);
 });
 
 test('a session death mid-run rejects instead of hanging on a stuck sendUpdate', async () => {
