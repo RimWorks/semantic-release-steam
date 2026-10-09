@@ -77,6 +77,105 @@ npx semantic-release-steam-apply-tags --config release.config.mjs.json --target 
 `--target` is the git branch name, resolved through the same `branchTargets` map as a normal
 publish.
 
+## Running these by hand from GitHub Actions
+
+Add `workflow_dispatch` to the workflow that runs `semantic-release`, alongside its existing
+trigger:
+
+```yaml
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+```
+
+`semantic-release` still decides whether a release is needed. A manual run with no new
+commits logs "no release published" and exits clean.
+
+Tag recovery needs its own workflow, since it takes a branch name as input instead of reading
+the one that triggered the run:
+
+```yaml
+name: apply-tags
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Branch name, resolved through branchTargets like a normal publish
+        required: true
+
+jobs:
+  apply-tags:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - run: npm ci
+      - run: npx semantic-release-steam-apply-tags --config release.config.mjs.json --target "${{ github.event.inputs.target }}"
+        env:
+          STEAM_USERNAME: ${{ secrets.STEAM_USERNAME }}
+          STEAM_CONFIG_VDF_B64: ${{ secrets.STEAM_CONFIG_VDF_B64 }}
+          STEAM_PASSWORD: ${{ secrets.STEAM_PASSWORD }}
+```
+
+Run it from the repo's Actions tab and pick the branch. It retags the item without touching
+SteamCMD or cutting a release.
+
+## Forcing a release
+
+`semantic-release` reads commit messages to decide the version bump. It has no flag for
+forcing one. To force a release on demand, push an empty commit with a conventional-commit
+message, then run `semantic-release` in the same job:
+
+```yaml
+name: force-release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Release type to force
+        required: true
+        type: choice
+        options: [patch, minor, major]
+      message:
+        description: Commit message, written into the changelog
+        required: true
+
+jobs:
+  force-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - run: npm ci
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          case "${{ inputs.bump }}" in
+            patch) type=fix ;;
+            minor) type=feat ;;
+            major) type='feat!' ;;
+          esac
+          git commit --allow-empty -m "$type: ${{ inputs.message }}"
+          git push
+      - run: npx semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          STEAM_USERNAME: ${{ secrets.STEAM_USERNAME }}
+          STEAM_CONFIG_VDF_B64: ${{ secrets.STEAM_CONFIG_VDF_B64 }}
+          STEAM_PASSWORD: ${{ secrets.STEAM_PASSWORD }}
+```
+
+Run `semantic-release` in this same job instead of relying on the push above to trigger your
+normal release workflow. A push made with the default `GITHUB_TOKEN` doesn't trigger other
+workflows, so the push-based workflow would never run.
+
 ## License
 
 [MIT](./LICENSE)
