@@ -4,6 +4,7 @@ import { buildSteamDescription } from './lib/description.mjs';
 import { compileReadme, writeCompiledReadme } from './lib/readme.mjs';
 import { stageModContent } from './lib/stage-content.mjs';
 import { uploadWorkshopItem } from './lib/steamcmd.mjs';
+import { applyWorkshopTags } from './lib/workshop-tags.mjs';
 
 function isDryRun(context) {
   return Boolean(context?.options?.dryRun);
@@ -27,6 +28,7 @@ function resolveOverrides(context) {
     uploadItem: context.uploadWorkshopItem ?? uploadWorkshopItem,
     compile: context.compileReadme ?? compileReadme,
     writeCompiled: context.writeCompiledReadme ?? writeCompiledReadme,
+    applyTags: context.applyWorkshopTags ?? applyWorkshopTags,
   };
 }
 
@@ -83,6 +85,8 @@ export async function publish(pluginConfig, context) {
     ? pluginConfig.assetBaseUrlTemplate.replace('{branch}', context.branch.name)
     : '';
 
+  const taggableMods = [];
+
   for (const mod of state.mods) {
     const modPath = resolve(cwd, mod.path);
     const markdown = await compileModReadme(pluginConfig, modPath, overrides);
@@ -117,6 +121,7 @@ export async function publish(pluginConfig, context) {
       steamCmdPath: context.env.STEAMCMD_PATH ?? '~/steamcmd/steamcmd.sh',
       steamUsername: context.env.STEAM_USERNAME,
       steamConfigPath: state.steamConfigPath,
+      steamHome: state.steamHome,
       appId: pluginConfig.appId,
       stagePath,
       publishedFileId,
@@ -132,6 +137,18 @@ export async function publish(pluginConfig, context) {
     });
 
     context.logger.log(`Published ${mod.name} to ${state.target} workshop item ${publishedFileId}`);
+    taggableMods.push({ name: mod.name, publishedFileId, tags: metadata.tags });
+  }
+
+  if (!dryRun) {
+    await overrides.applyTags({
+      steamUsername: context.env.STEAM_USERNAME,
+      steamPassword: context.env.STEAM_PASSWORD,
+      steamRefreshToken: context.env.STEAM_REFRESH_TOKEN,
+      appId: pluginConfig.appId,
+      mods: taggableMods,
+      logger: context.logger,
+    });
   }
 
   return undefined;

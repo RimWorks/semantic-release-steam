@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  test-matrix:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -30,3 +30,12 @@ jobs:
         run: npm run typecheck
       - name: Test
         run: npm test
+
+  test:
+    name: test
+    needs: test-matrix
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check matrix result
+        run: test "${{ needs.test-matrix.result }}" = "success"

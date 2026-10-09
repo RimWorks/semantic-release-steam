@@ -5,6 +5,9 @@
   "type": "module",
   "main": "index.mjs",
   "types": "./index.d.ts",
+  "bin": {
+    "semantic-release-steam-apply-tags": "./bin/apply-tags.mjs"
+  },
   "exports": {
     ".": {
       "types": "./index.d.ts",
@@ -16,6 +19,7 @@
   "files": [
     "index.mjs",
     "index.d.ts",
+    "bin/",
     "lib/",
     "schema/",
     "LICENSE",
@@ -62,7 +66,9 @@
     }
   },
   "dependencies": {
-    "@steamdown/core": "^1.0.0-beta.2"
+    "@steamdown/core": "^1.0.0-beta.2",
+    "steam-session": "^1.9.4",
+    "steam-user": "^5.3.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

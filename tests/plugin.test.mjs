@@ -173,7 +173,7 @@ test('publish honors dry-run: no stage, no upload, logs intent', async () => {
     {
       branch: { name: 'main' },
       cwd: '/repo',
-      env: { STEAM_USERNAME: 'u', STEAM_CONFIG_VDF: '/cv' },
+      env: { STEAM_USERNAME: 'u', STEAM_CONFIG_VDF: '/cv', STEAM_PASSWORD: 'secret' },
       nextRelease: { version: '1.0.0', notes: 'release notes' },
       options: { dryRun: true },
       logger: { log: msg => logs.push(msg) },
@@ -214,13 +214,14 @@ test('publish per-target metadata overrides per-mod defaults', async () => {
     {
       branch: { name: 'beta' },
       cwd: '/repo',
-      env: { STEAM_USERNAME: 'u', STEAM_CONFIG_VDF: '/cv' },
+      env: { STEAM_USERNAME: 'u', STEAM_CONFIG_VDF: '/cv', STEAM_PASSWORD: 'secret' },
       nextRelease: { version: '1.0.0-beta.1', notes: '' },
       logger: { log() {} },
       compileReadme: async () => 'md',
       buildSteamDescription: async () => 'd',
       stageModContent: async () => '/s',
       uploadWorkshopItem: async opts => { uploadCalls.push(opts); },
+      applyWorkshopTags: async () => {},
     },
   );
 
@@ -255,4 +256,100 @@ test('publish threads uploadTimeoutMs and verbose through to uploader', async ()
 
   assert.equal(uploadCalls[0].timeoutMs, 999000);
   assert.equal(uploadCalls[0].verbose, true);
+});
+
+test('publish threads steamHome through to the uploader when STEAM_CONFIG_VDF_B64 decodes to a temp home', async () => {
+  const uploadCalls = [];
+
+  await plugin.publish(
+    {
+      appId: '500',
+      branchTargets: { main: 'stable' },
+      mods: [{ name: 'MyMod', path: 'MyMod', workshopIds: { stable: '1' } }],
+    },
+    {
+      branch: { name: 'main' },
+      cwd: '/repo',
+      env: {
+        STEAM_USERNAME: 'u',
+        STEAM_CONFIG_VDF_B64: Buffer.from('"InstallConfigStore" {}').toString('base64'),
+      },
+      nextRelease: { version: '1.0.0', notes: '' },
+      logger: { log() {} },
+      compileReadme: async () => 'md',
+      buildSteamDescription: async () => 'd',
+      stageModContent: async () => '/s',
+      uploadWorkshopItem: async opts => { uploadCalls.push(opts); },
+    },
+  );
+
+  assert.equal(typeof uploadCalls[0].steamHome, 'string');
+  assert.match(uploadCalls[0].steamHome, /semantic-release-steam-/);
+});
+
+test('publish calls applyWorkshopTags once after the upload loop, with every mods tags', async () => {
+  const applyTagsCalls = [];
+
+  await plugin.publish(
+    {
+      appId: '294100',
+      branchTargets: { main: 'stable' },
+      mods: [
+        { name: 'ModOne', path: 'ModOne', workshopIds: { stable: '1' }, tags: ['QoL'] },
+        { name: 'ModTwo', path: 'ModTwo', workshopIds: { stable: '2' } },
+      ],
+    },
+    {
+      branch: { name: 'main' },
+      cwd: '/repo',
+      env: { STEAM_USERNAME: 'u', STEAM_CONFIG_VDF: '/cv', STEAM_PASSWORD: 'secret' },
+      nextRelease: { version: '1.0.0', notes: '' },
+      logger: { log() {} },
+      compileReadme: async () => 'md',
+      buildSteamDescription: async () => 'd',
+      stageModContent: async () => '/s',
+      uploadWorkshopItem: async () => undefined,
+      applyWorkshopTags: async opts => { applyTagsCalls.push(opts); },
+    },
+  );
+
+  assert.equal(applyTagsCalls.length, 1);
+  assert.equal(applyTagsCalls[0].appId, '294100');
+  assert.equal(applyTagsCalls[0].steamUsername, 'u');
+  assert.equal(applyTagsCalls[0].steamPassword, 'secret');
+  assert.deepEqual(applyTagsCalls[0].mods, [
+    { name: 'ModOne', publishedFileId: '1', tags: ['QoL'] },
+    { name: 'ModTwo', publishedFileId: '2', tags: undefined },
+  ]);
+});
+
+test('publish never calls applyWorkshopTags on dry run', async () => {
+  const applyTagsCalls = [];
+  const stageCalls = [];
+  const uploadCalls = [];
+
+  await plugin.publish(
+    {
+      appId: '294100',
+      branchTargets: { main: 'stable' },
+      mods: [{ name: 'M', path: 'M', workshopIds: { stable: '1' }, tags: ['QoL'] }],
+    },
+    {
+      branch: { name: 'main' },
+      cwd: '/repo',
+      env: { STEAM_USERNAME: 'u', STEAM_CONFIG_VDF: '/cv', STEAM_PASSWORD: 'secret' },
+      nextRelease: { version: '1.0.0', notes: '' },
+      options: { dryRun: true },
+      logger: { log() {} },
+      compileReadme: async () => 'md',
+      buildSteamDescription: async () => 'd',
+      stageModContent: async opts => { stageCalls.push(opts); return '/s'; },
+      uploadWorkshopItem: async opts => { uploadCalls.push(opts); },
+      applyWorkshopTags: async opts => { applyTagsCalls.push(opts); },
+    },
+  );
+
+  assert.equal(stageCalls.length, 0);
+  assert.equal(uploadCalls.length, 0);
+  assert.equal(applyTagsCalls.length, 0);
 });
