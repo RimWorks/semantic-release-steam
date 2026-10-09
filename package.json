@@ -5,6 +5,9 @@
   "type": "module",
   "main": "index.mjs",
   "types": "./index.d.ts",
+  "bin": {
+    "semantic-release-steam-apply-tags": "./bin/apply-tags.mjs"
+  },
   "exports": {
     ".": {
       "types": "./index.d.ts",
@@ -16,6 +19,7 @@
   "files": [
     "index.mjs",
     "index.d.ts",
+    "bin/",
     "lib/",
     "schema/",
     "LICENSE",

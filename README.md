@@ -43,6 +43,10 @@ Set these variables in your release environment:
 - `STEAM_USERNAME`
 - `STEAM_CONFIG_VDF` or `STEAM_CONFIG_VDF_B64`
 - `STEAMCMD_PATH` if SteamCMD isn't at `~/steamcmd/steamcmd.sh`
+- `STEAM_PASSWORD` or `STEAM_REFRESH_TOKEN`, only if any mod sets `tags` - these set Steam
+  Workshop browse tags over a separate login, since SteamCMD itself has no way to set them.
+  `STEAM_REFRESH_TOKEN` skips the Steam Guard prompt; `STEAM_PASSWORD` needs one approval tap
+  per publish.
 
 SteamCMD must have a saved login in its `config/config.vdf`. See the [SteamCMD Workshop upload guide](https://partner.steamgames.com/doc/features/workshop/implementation#SteamCmdIntegration) for the item setup and VDF format.
 
@@ -56,6 +60,18 @@ The plugin updates Workshop items. Create each item before your first release, t
 - [semantic-release configuration](https://semantic-release.gitbook.io/semantic-release/usage/configuration)
 - [GitHub Actions setup](https://semantic-release.gitbook.io/semantic-release/recipes/ci-configurations/github-actions)
 - [Steam Workshop implementation guide](https://partner.steamgames.com/doc/features/workshop/implementation)
+
+## Recovering a missed tag update
+
+If a publish uploads through SteamCMD but fails before the tag step finishes (a missed Steam
+Guard tap, a dropped connection), retag the item without a new release:
+
+```bash
+npx semantic-release-steam-apply-tags --config release.config.mjs.json --target main
+```
+
+`--target` is the git branch name, resolved through the same `branchTargets` map as a normal
+publish.
 
 ## License
 
