@@ -70,6 +70,10 @@ Guard tap, a dropped connection), retag the item without a new release:
 npx semantic-release-steam-apply-tags --config release.config.mjs.json --target main
 ```
 
+`--config` points at a JSON file holding just this plugin's own options (`appId`,
+`branchTargets`, `mods`), not the full `release.config.mjs`. Write it once, for example with
+`node -e "console.log(JSON.stringify(require('./release.config.mjs').default.plugins[0][1]))" > release.config.mjs.json`.
+
 `--target` is the git branch name, resolved through the same `branchTargets` map as a normal
 publish.
 

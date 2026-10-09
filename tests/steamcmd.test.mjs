@@ -38,6 +38,53 @@ test('uploadWorkshopItem passes steam config path and uses default timeout', asy
   assert.equal(calls[0].options.env.STEAM_CONFIG_VDF, '/tmp/config.vdf');
 });
 
+test('uploadWorkshopItem sets HOME to steamHome so SteamCMD finds the decoded config\'s .steam symlinks', async () => {
+  const calls = [];
+  const stagePath = mkdtempSync(join(tmpdir(), 'steamcmd-stage-'));
+
+  await uploadWorkshopItem({
+    steamCmdPath: '/tmp/steamcmd.sh',
+    steamUsername: 'steam-user',
+    steamConfigPath: '/tmp/fake-home/.steam/config/config.vdf',
+    steamHome: '/tmp/fake-home',
+    appId: '294100',
+    stagePath,
+    publishedFileId: '123456',
+    changenote: '2.0.0-beta.3',
+    description: 'Steam description',
+    execFileAsync: async (command, args, options) => {
+      calls.push({ command, args, options });
+      return { stdout: 'steam ok', stderr: '' };
+    },
+    logger: { log() {}, debug() {} },
+  });
+
+  assert.equal(calls[0].options.env.HOME, '/tmp/fake-home');
+});
+
+test('uploadWorkshopItem leaves HOME untouched when steamHome is not set', async () => {
+  const calls = [];
+  const stagePath = mkdtempSync(join(tmpdir(), 'steamcmd-stage-'));
+
+  await uploadWorkshopItem({
+    steamCmdPath: '/tmp/steamcmd.sh',
+    steamUsername: 'steam-user',
+    steamConfigPath: '/tmp/config.vdf',
+    appId: '294100',
+    stagePath,
+    publishedFileId: '123456',
+    changenote: '2.0.0-beta.3',
+    description: 'Steam description',
+    execFileAsync: async (command, args, options) => {
+      calls.push({ command, args, options });
+      return { stdout: 'steam ok', stderr: '' };
+    },
+    logger: { log() {}, debug() {} },
+  });
+
+  assert.equal(calls[0].options.env.HOME, process.env.HOME);
+});
+
 test('uploadWorkshopItem honors custom timeoutMs', async () => {
   const calls = [];
   const stagePath = mkdtempSync(join(tmpdir(), 'steamcmd-stage-'));

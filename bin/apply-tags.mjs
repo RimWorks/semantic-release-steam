@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { readFile } from 'node:fs/promises';
+import { realpathSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { verifySteamPublishConfig } from '../lib/config.mjs';
 import { applyWorkshopTags } from '../lib/workshop-tags.mjs';
 
@@ -31,6 +33,17 @@ export async function run({
 
   const pluginConfig = JSON.parse(await readConfig(configPath));
 
+  const hasBranchTargets = pluginConfig.branchTargets && typeof pluginConfig.branchTargets === 'object'
+    && !Array.isArray(pluginConfig.branchTargets);
+  const hasMods = Array.isArray(pluginConfig.mods);
+  if (!hasBranchTargets || !hasMods) {
+    throw new Error(
+      `Config file "${configPath}" must contain "branchTargets" (an object) and "mods" (an array) - ` +
+        'the same options you pass to the semantic-release-steam plugin, not the full release.config.mjs. ' +
+        `Found top-level keys: [${Object.keys(pluginConfig).join(', ')}].`,
+    );
+  }
+
   const state = await verifyConfig({
     env,
     branchName,
@@ -59,7 +72,16 @@ export async function run({
   });
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+function isMainModule() {
+  if (!process.argv[1]) return false;
+  try {
+    return realpathSync(process.argv[1]) === fileURLToPath(import.meta.url);
+  } catch {
+    return false;
+  }
+}
+
+if (isMainModule()) {
   run().catch(error => {
     console.error(error.message);
     process.exitCode = 1;

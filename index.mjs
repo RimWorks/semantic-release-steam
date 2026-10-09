@@ -121,6 +121,7 @@ export async function publish(pluginConfig, context) {
       steamCmdPath: context.env.STEAMCMD_PATH ?? '~/steamcmd/steamcmd.sh',
       steamUsername: context.env.STEAM_USERNAME,
       steamConfigPath: state.steamConfigPath,
+      steamHome: state.steamHome,
       appId: pluginConfig.appId,
       stagePath,
       publishedFileId,

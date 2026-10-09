@@ -258,6 +258,35 @@ test('publish threads uploadTimeoutMs and verbose through to uploader', async ()
   assert.equal(uploadCalls[0].verbose, true);
 });
 
+test('publish threads steamHome through to the uploader when STEAM_CONFIG_VDF_B64 decodes to a temp home', async () => {
+  const uploadCalls = [];
+
+  await plugin.publish(
+    {
+      appId: '500',
+      branchTargets: { main: 'stable' },
+      mods: [{ name: 'MyMod', path: 'MyMod', workshopIds: { stable: '1' } }],
+    },
+    {
+      branch: { name: 'main' },
+      cwd: '/repo',
+      env: {
+        STEAM_USERNAME: 'u',
+        STEAM_CONFIG_VDF_B64: Buffer.from('"InstallConfigStore" {}').toString('base64'),
+      },
+      nextRelease: { version: '1.0.0', notes: '' },
+      logger: { log() {} },
+      compileReadme: async () => 'md',
+      buildSteamDescription: async () => 'd',
+      stageModContent: async () => '/s',
+      uploadWorkshopItem: async opts => { uploadCalls.push(opts); },
+    },
+  );
+
+  assert.equal(typeof uploadCalls[0].steamHome, 'string');
+  assert.match(uploadCalls[0].steamHome, /semantic-release-steam-/);
+});
+
 test('publish calls applyWorkshopTags once after the upload loop, with every mods tags', async () => {
   const applyTagsCalls = [];
 
