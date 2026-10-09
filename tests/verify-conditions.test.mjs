@@ -133,3 +133,72 @@ test('skips mod missing target key when other mods have it (and no close match)'
   assert.equal(result.mods.length, 1);
   assert.equal(result.mods[0].name, 'ModOne');
 });
+
+test('resolves STEAM_CONFIG_VDF_B64 to a real file path, not the resolver object', async () => {
+  const result = await verifySteamPublishConfig({
+    env: {
+      STEAM_USERNAME: 'builder',
+      STEAM_CONFIG_VDF_B64: Buffer.from('"InstallConfigStore" {}').toString('base64'),
+    },
+    branchName: 'main',
+    branchTargets: { main: 'stable' },
+    mods: [{ name: 'MyMod', path: 'MyMod', workshopIds: { stable: '1' } }],
+    appId: '294100',
+  });
+
+  assert.equal(typeof result.steamConfigPath, 'string');
+  assert.match(result.steamConfigPath, /config\.vdf$/);
+});
+
+test('throws when a publishable mod has tags and no STEAM_PASSWORD or STEAM_REFRESH_TOKEN', async () => {
+  await assert.rejects(
+    () => verifySteamPublishConfig({
+      env: baseEnv(),
+      branchName: 'main',
+      branchTargets: { main: 'stable' },
+      mods: [{ name: 'MyMod', path: 'MyMod', workshopIds: { stable: '1' }, tags: ['QoL'] }],
+      appId: '294100',
+    }),
+    /STEAM_PASSWORD or STEAM_REFRESH_TOKEN is required/,
+  );
+});
+
+test('passes when STEAM_PASSWORD is set alongside tags', async () => {
+  const result = await verifySteamPublishConfig({
+    env: { ...baseEnv(), STEAM_PASSWORD: 'secret' },
+    branchName: 'main',
+    branchTargets: { main: 'stable' },
+    mods: [{ name: 'MyMod', path: 'MyMod', workshopIds: { stable: '1' }, tags: ['QoL'] }],
+    appId: '294100',
+  });
+
+  assert.equal(result.shouldPublish, true);
+});
+
+test('passes when STEAM_REFRESH_TOKEN is set alongside tags', async () => {
+  const result = await verifySteamPublishConfig({
+    env: { ...baseEnv(), STEAM_REFRESH_TOKEN: 'rt' },
+    branchName: 'main',
+    branchTargets: { main: 'stable' },
+    mods: [{ name: 'MyMod', path: 'MyMod', workshopIds: { stable: '1' }, tags: ['QoL'] }],
+    appId: '294100',
+  });
+
+  assert.equal(result.shouldPublish, true);
+});
+
+test('does not require a tags credential when the tagged mod is not publishable for this target', async () => {
+  const result = await verifySteamPublishConfig({
+    env: baseEnv(),
+    branchName: 'main',
+    branchTargets: { main: 'stable', beta: 'beta' },
+    mods: [
+      { name: 'Publishable', path: 'Publishable', workshopIds: { stable: '1' } },
+      { name: 'TaggedButOtherTarget', path: 'X', workshopIds: { beta: '2' }, tags: ['QoL'] },
+    ],
+    appId: '294100',
+  });
+
+  assert.equal(result.shouldPublish, true);
+  assert.equal(result.mods.length, 1);
+});

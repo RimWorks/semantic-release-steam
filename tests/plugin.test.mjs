@@ -173,7 +173,7 @@ test('publish honors dry-run: no stage, no upload, logs intent', async () => {
     {
       branch: { name: 'main' },
       cwd: '/repo',
-      env: { STEAM_USERNAME: 'u', STEAM_CONFIG_VDF: '/cv' },
+      env: { STEAM_USERNAME: 'u', STEAM_CONFIG_VDF: '/cv', STEAM_PASSWORD: 'secret' },
       nextRelease: { version: '1.0.0', notes: 'release notes' },
       options: { dryRun: true },
       logger: { log: msg => logs.push(msg) },
@@ -214,7 +214,7 @@ test('publish per-target metadata overrides per-mod defaults', async () => {
     {
       branch: { name: 'beta' },
       cwd: '/repo',
-      env: { STEAM_USERNAME: 'u', STEAM_CONFIG_VDF: '/cv' },
+      env: { STEAM_USERNAME: 'u', STEAM_CONFIG_VDF: '/cv', STEAM_PASSWORD: 'secret' },
       nextRelease: { version: '1.0.0-beta.1', notes: '' },
       logger: { log() {} },
       compileReadme: async () => 'md',
