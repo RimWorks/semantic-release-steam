@@ -52,6 +52,8 @@ SteamCMD must have a saved login in its `config/config.vdf`. See the [SteamCMD W
 
 Put `README.template.md` in each mod directory. Add `.steamignore` there if you need to exclude files from the upload.
 
+Two fields come from the mod directory when you leave them out of the config. `tags` becomes every `<li>` under `<supportedVersions>` in `About/About.xml`, plus `Mod`. `previewfile` becomes `About/Preview.png` when that file exists. Setting either one in the config, or in a per-target `metadata` override, wins.
+
 The plugin updates Workshop items. Create each item before your first release, then add its ID to `workshopIds`.
 
 ## Documentation

@@ -59,7 +59,10 @@
       "additionalProperties": false,
       "properties": {
         "title": { "type": "string" },
-        "previewfile": { "type": "string" },
+        "previewfile": {
+          "type": "string",
+          "description": "Preview image path. Defaults to <modPath>/About/Preview.png when that file exists."
+        },
         "visibility": {
           "type": "integer",
           "enum": [0, 1, 2, 3],
@@ -67,7 +70,8 @@
         },
         "tags": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": { "type": "string" },
+          "description": "Workshop tags. Defaults to every supportedVersions entry in <modPath>/About/About.xml, plus Mod."
         }
       }
     },

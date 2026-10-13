@@ -353,3 +353,87 @@ test('publish never calls applyWorkshopTags on dry run', async () => {
   assert.equal(uploadCalls.length, 0);
   assert.equal(applyTagsCalls.length, 0);
 });
+
+test('publish falls back to metadata derived from the mod directory', async () => {
+  const uploadCalls = [];
+
+  await plugin.publish(
+    {
+      appId: '500',
+      branchTargets: { main: 'stable' },
+      mods: [{ name: 'MyMod', path: 'MyMod', workshopIds: { stable: '1' } }],
+    },
+    {
+      branch: { name: 'main' },
+      cwd: '/repo',
+      env: { STEAM_USERNAME: 'u', STEAM_CONFIG_VDF: '/cv', STEAM_PASSWORD: 'secret' },
+      nextRelease: { version: '1.0.0', notes: '' },
+      logger: { log() {} },
+      compileReadme: async () => 'md',
+      buildSteamDescription: async () => 'd',
+      stageModContent: async () => '/s',
+      deriveWorkshopMetadata: async modPath => {
+        assert.equal(modPath, '/repo/MyMod');
+        return { tags: ['1.6', 'Mod'], previewfile: '/repo/MyMod/About/Preview.png' };
+      },
+      applyWorkshopTags: async () => undefined,
+      uploadWorkshopItem: async opts => { uploadCalls.push(opts); },
+    },
+  );
+
+  assert.deepEqual(uploadCalls[0].tags, ['1.6', 'Mod']);
+  assert.equal(uploadCalls[0].previewfile, '/repo/MyMod/About/Preview.png');
+});
+
+test('publish prefers configured tags and previewfile over derived ones', async () => {
+  const uploadCalls = [];
+
+  await plugin.publish(
+    {
+      appId: '500',
+      branchTargets: { main: 'stable' },
+      mods: [{
+        name: 'MyMod',
+        path: 'MyMod',
+        workshopIds: { stable: '1' },
+        tags: ['QoL'],
+        previewfile: '/custom/preview.png',
+      }],
+    },
+    {
+      branch: { name: 'main' },
+      cwd: '/repo',
+      env: { STEAM_USERNAME: 'u', STEAM_CONFIG_VDF: '/cv', STEAM_PASSWORD: 'secret' },
+      nextRelease: { version: '1.0.0', notes: '' },
+      logger: { log() {} },
+      compileReadme: async () => 'md',
+      buildSteamDescription: async () => 'd',
+      stageModContent: async () => '/s',
+      deriveWorkshopMetadata: async () => ({ tags: ['1.6', 'Mod'], previewfile: '/derived.png' }),
+      applyWorkshopTags: async () => undefined,
+      uploadWorkshopItem: async opts => { uploadCalls.push(opts); },
+    },
+  );
+
+  assert.deepEqual(uploadCalls[0].tags, ['QoL']);
+  assert.equal(uploadCalls[0].previewfile, '/custom/preview.png');
+});
+
+test('verifyConditions counts derived tags when it checks for tag credentials', async () => {
+  await assert.rejects(
+    plugin.verifyConditions(
+      {
+        appId: '500',
+        branchTargets: { main: 'stable' },
+        mods: [{ name: 'MyMod', path: 'MyMod', workshopIds: { stable: '1' } }],
+      },
+      {
+        branch: { name: 'main' },
+        cwd: '/repo',
+        env: { STEAM_USERNAME: 'u', STEAM_CONFIG_VDF: '/cv' },
+        deriveWorkshopMetadata: async () => ({ tags: ['1.6', 'Mod'] }),
+      },
+    ),
+    /STEAM_PASSWORD or STEAM_REFRESH_TOKEN is required/,
+  );
+});

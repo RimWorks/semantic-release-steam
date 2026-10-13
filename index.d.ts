@@ -11,11 +11,11 @@ export type WorkshopVisibility = 0 | 1 | 2 | 3;
 export interface WorkshopMetadata {
   /** Workshop item title. Only emitted if set. */
   title?: string;
-  /** Path to a preview image (jpg/png), relative to the mod path or absolute. Only emitted if set. */
+  /** Path to a preview image (jpg/png), relative to the mod path or absolute. Defaults to `About/Preview.png`. */
   previewfile?: string;
   /** 0 = public, 1 = friends-only, 2 = private, 3 = unlisted. Only emitted if set. */
   visibility?: WorkshopVisibility;
-  /** Workshop tags. Only emitted if set. */
+  /** Workshop tags. Defaults to `About.xml`'s `supportedVersions` plus `Mod`. */
   tags?: string[];
 }
 

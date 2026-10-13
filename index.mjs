@@ -1,4 +1,5 @@
 import { resolve } from 'node:path';
+import { deriveWorkshopMetadata } from './lib/about.mjs';
 import { verifySteamPublishConfig } from './lib/config.mjs';
 import { buildSteamDescription } from './lib/description.mjs';
 import { compileReadme, writeCompiledReadme } from './lib/readme.mjs';
@@ -20,6 +21,19 @@ function resolveModMetadata(mod, target) {
   };
 }
 
+async function withDerivedDefaults(mods = [], cwd, derive) {
+  return Promise.all(
+    mods.map(async mod => {
+      const derived = await derive(resolve(cwd, mod.path));
+      return {
+        ...mod,
+        previewfile: mod.previewfile ?? derived.previewfile,
+        tags: mod.tags ?? derived.tags,
+      };
+    }),
+  );
+}
+
 // the context overrides are the seam the tests inject through; real runs get the imports.
 function resolveOverrides(context) {
   return {
@@ -29,6 +43,7 @@ function resolveOverrides(context) {
     compile: context.compileReadme ?? compileReadme,
     writeCompiled: context.writeCompiledReadme ?? writeCompiledReadme,
     applyTags: context.applyWorkshopTags ?? applyWorkshopTags,
+    deriveMetadata: context.deriveWorkshopMetadata ?? deriveWorkshopMetadata,
   };
 }
 
@@ -56,21 +71,30 @@ function describeDryRun({ mod, target, publishedFileId, version, description, me
 }
 
 export async function verifyConditions(pluginConfig, context) {
+  const overrides = resolveOverrides(context);
+
   await verifySteamPublishConfig({
     env: context.env,
     branchName: context.branch.name,
     branchTargets: pluginConfig.branchTargets,
-    mods: pluginConfig.mods,
+    mods: await withDerivedDefaults(
+      pluginConfig.mods,
+      context.cwd ?? process.cwd(),
+      overrides.deriveMetadata,
+    ),
     appId: pluginConfig.appId,
   });
 }
 
 export async function publish(pluginConfig, context) {
+  const cwd = context.cwd ?? process.cwd();
+  const overrides = resolveOverrides(context);
+
   const state = await verifySteamPublishConfig({
     env: context.env,
     branchName: context.branch.name,
     branchTargets: pluginConfig.branchTargets,
-    mods: pluginConfig.mods,
+    mods: await withDerivedDefaults(pluginConfig.mods, cwd, overrides.deriveMetadata),
     appId: pluginConfig.appId,
   });
 
@@ -78,9 +102,7 @@ export async function publish(pluginConfig, context) {
     return undefined;
   }
 
-  const cwd = context.cwd ?? process.cwd();
   const dryRun = isDryRun(context);
-  const overrides = resolveOverrides(context);
   const assetBaseUrl = pluginConfig.assetBaseUrlTemplate
     ? pluginConfig.assetBaseUrlTemplate.replace('{branch}', context.branch.name)
     : '';
