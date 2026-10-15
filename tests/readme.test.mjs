@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { compileReadme, writeCompiledReadme } from '../lib/readme.mjs';
+import { compileReadme, discoverLocalizedTemplates, writeCompiledReadme } from '../lib/readme.mjs';
 
 const zwsp = '​';
 
@@ -109,4 +109,88 @@ test('assetDirNameTransform array expands glob patterns against .github/assets',
   });
 
   assert.match(compiled, /\.\.\/\.github\/assets\/mod-(a|b)\/intro\.png/);
+});
+
+test('discoverLocalizedTemplates finds two codes in a temp dir and returns them sorted', async () => {
+  const rootPath = mkdtempSync(join(tmpdir(), 'readme-i18n-'));
+  const modPath = join(rootPath, 'MyMod');
+  mkdirSync(modPath, { recursive: true });
+
+  writeFileSync(join(modPath, 'README.schinese.template.md'), '');
+  writeFileSync(join(modPath, 'README.german.template.md'), '');
+
+  const result = await discoverLocalizedTemplates({ modPath });
+
+  assert.deepEqual(result, [
+    { code: 'german', filename: 'README.german.template.md' },
+    { code: 'schinese', filename: 'README.schinese.template.md' },
+  ]);
+});
+
+test('discoverLocalizedTemplates on a directory that does not exist returns an empty array', async () => {
+  const result = await discoverLocalizedTemplates({ modPath: '/repo/MyMod' });
+
+  assert.deepEqual(result, []);
+});
+
+test('discoverLocalizedTemplates ignores README.template.md, README.md and README.schinese.md', async () => {
+  const rootPath = mkdtempSync(join(tmpdir(), 'readme-i18n-'));
+  const modPath = join(rootPath, 'MyMod');
+  mkdirSync(modPath, { recursive: true });
+
+  writeFileSync(join(modPath, 'README.template.md'), '');
+  writeFileSync(join(modPath, 'README.md'), '');
+  writeFileSync(join(modPath, 'README.schinese.md'), '');
+
+  const result = await discoverLocalizedTemplates({ modPath });
+
+  assert.deepEqual(result, []);
+});
+
+test('compileReadme with no templateFilename still reads README.template.md', async () => {
+  const rootPath = mkdtempSync(join(tmpdir(), 'readme-compile-'));
+  const modPath = join(rootPath, 'MyMod');
+  mkdirSync(modPath, { recursive: true });
+
+  writeFileSync(join(modPath, 'README.template.md'), 'default body\n');
+
+  const result = await compileReadme({ modPath, header: 'H', footer: 'F' });
+
+  assert.match(result, /default body/);
+});
+
+test('compileReadme with templateFilename reads that file', async () => {
+  const rootPath = mkdtempSync(join(tmpdir(), 'readme-compile-'));
+  const modPath = join(rootPath, 'MyMod');
+  mkdirSync(modPath, { recursive: true });
+
+  writeFileSync(join(modPath, 'README.german.template.md'), 'german body\n');
+
+  const result = await compileReadme({
+    modPath,
+    header: 'H',
+    footer: 'F',
+    templateFilename: 'README.german.template.md',
+  });
+
+  assert.match(result, /german body/);
+});
+
+test('writeCompiledReadme with a localized template writes README.<code>.md and leaves an existing README.md untouched', async () => {
+  const rootPath = mkdtempSync(join(tmpdir(), 'readme-compile-'));
+  const modPath = join(rootPath, 'MyMod');
+  mkdirSync(modPath, { recursive: true });
+
+  writeFileSync(join(modPath, 'README.md'), 'english already here');
+  writeFileSync(join(modPath, 'README.german.template.md'), 'german body\n');
+
+  await writeCompiledReadme({
+    modPath,
+    header: 'H',
+    footer: 'F',
+    templateFilename: 'README.german.template.md',
+  });
+
+  assert.match(readFileSync(join(modPath, 'README.german.md'), 'utf8'), /german body/);
+  assert.equal(readFileSync(join(modPath, 'README.md'), 'utf8'), 'english already here');
 });

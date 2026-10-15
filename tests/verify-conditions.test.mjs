@@ -187,6 +187,98 @@ test('passes when STEAM_REFRESH_TOKEN is set alongside tags', async () => {
   assert.equal(result.shouldPublish, true);
 });
 
+test('throws when a mod has localized templates and no resolvable title', async () => {
+  await assert.rejects(
+    () => verifySteamPublishConfig({
+      env: { ...baseEnv(), STEAM_PASSWORD: 'secret' },
+      branchName: 'main',
+      branchTargets: { main: 'stable' },
+      mods: [{
+        name: 'MyMod',
+        path: 'MyMod',
+        workshopIds: { stable: '1' },
+        localizedTemplates: [{ code: 'german', filename: 'README.de.template.md' }],
+      }],
+      appId: '294100',
+    }),
+    /Mod "MyMod" has localized descriptions but no title/,
+  );
+});
+
+test('accepts a title from metadata for the resolved target', async () => {
+  const result = await verifySteamPublishConfig({
+    env: { ...baseEnv(), STEAM_PASSWORD: 'secret' },
+    branchName: 'main',
+    branchTargets: { main: 'stable' },
+    mods: [{
+      name: 'MyMod',
+      path: 'MyMod',
+      workshopIds: { stable: '1' },
+      metadata: { stable: { title: 'My Mod' } },
+      localizedTemplates: [{ code: 'german', filename: 'README.de.template.md' }],
+    }],
+    appId: '294100',
+  });
+
+  assert.equal(result.shouldPublish, true);
+});
+
+test('throws when a mod has localized templates and no STEAM_PASSWORD or STEAM_REFRESH_TOKEN', async () => {
+  await assert.rejects(
+    () => verifySteamPublishConfig({
+      env: baseEnv(),
+      branchName: 'main',
+      branchTargets: { main: 'stable' },
+      mods: [{
+        name: 'MyMod',
+        path: 'MyMod',
+        workshopIds: { stable: '1' },
+        title: 'My Mod',
+        localizedTemplates: [{ code: 'german', filename: 'README.de.template.md' }],
+      }],
+      appId: '294100',
+    }),
+    /STEAM_PASSWORD or STEAM_REFRESH_TOKEN is required when a mod configures tags or localized descriptions/,
+  );
+});
+
+test('throws when resolveLanguage rejects a localized template code', async () => {
+  await assert.rejects(
+    () => verifySteamPublishConfig({
+      env: { ...baseEnv(), STEAM_PASSWORD: 'secret' },
+      branchName: 'main',
+      branchTargets: { main: 'stable' },
+      mods: [{
+        name: 'MyMod',
+        path: 'MyMod',
+        workshopIds: { stable: '1' },
+        title: 'My Mod',
+        localizedTemplates: [{ code: 'klingon', filename: 'README.tlh.template.md' }],
+      }],
+      appId: '294100',
+      resolveLanguage: code => {
+        throw new Error(`unknown language "${code}"`);
+      },
+    }),
+    /Mod "MyMod" has a localized template "README\.tlh\.template\.md" with an unusable language code "klingon": unknown language "klingon"/,
+  );
+});
+
+test('leaves a mod with no localized templates unaffected by the localization checks', async () => {
+  const result = await verifySteamPublishConfig({
+    env: baseEnv(),
+    branchName: 'main',
+    branchTargets: { main: 'stable' },
+    mods: [{ name: 'MyMod', path: 'MyMod', workshopIds: { stable: '1' } }],
+    appId: '294100',
+    resolveLanguage: () => {
+      throw new Error('boom');
+    },
+  });
+
+  assert.equal(result.shouldPublish, true);
+});
+
 test('does not require a tags credential when the tagged mod is not publishable for this target', async () => {
   const result = await verifySteamPublishConfig({
     env: baseEnv(),
