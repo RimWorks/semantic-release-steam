@@ -469,6 +469,21 @@ test('verifyPublishedItem compares visibility when the caller sent one', async (
   assert.deepEqual(result.mismatched, ['visibility']);
 });
 
+test('a refused read names the failed GetDetails call, not a field mismatch', async () => {
+  const user = {
+    _sendUnified: (method, data, cb) => cb({ publishedfiledetails: [] }, { proto: { eresult: 15 } }),
+  };
+
+  await assert.rejects(
+    () => verifyPublishedItem(user, '1', { language: 6, title: '标题' }, 1, 1),
+    error => {
+      assert.match(error.message, /GetDetails#1 for 1 \(language 6\) returned eresult 15/);
+      assert.doesNotMatch(error.message, /0 chars/);
+      return true;
+    },
+  );
+});
+
 test('a localized send always carries both the title and the description', async () => {
   const sent = [];
 
