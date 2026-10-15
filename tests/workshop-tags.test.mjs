@@ -184,6 +184,40 @@ test('a rejected connect propagates and never reaches sendUpdate', async () => {
   assert.equal(sendCalls.length, 0);
 });
 
+test('a failed login names every mod and language still stale on Workshop', async () => {
+  await assert.rejects(
+    () => applyWorkshopUpdates({
+      steamUsername: 'builder',
+      steamPassword: 'secret',
+      appId: '294100',
+      mods: [
+        {
+          name: 'Moddo',
+          publishedFileId: '1',
+          tags: ['Mod'],
+          localized: [
+            { code: 'schinese', language: 6, title: 'T', description: 'D' },
+            { code: 'russian', language: 8, title: 'T', description: 'D' },
+          ],
+        },
+      ],
+      logger: { log() {} },
+      login: async () => { throw new Error('Steam Guard approval timed out'); },
+      connect: async () => ({ user: {}, died: new Promise(() => {}) }),
+      sendUpdate: async () => {},
+      verify: async () => ({ matches: true, actual: {}, mismatched: [] }),
+    }),
+    error => {
+      assert.match(error.message, /Steam Guard approval timed out/);
+      assert.match(error.message, /Updated: \[\]/);
+      assert.match(error.message, /Moddo/);
+      assert.match(error.message, /schinese/);
+      assert.match(error.message, /russian/);
+      return true;
+    },
+  );
+});
+
 test('a rejected Update#1 call fails the whole publish and still disconnects', async () => {
   const disconnectCalls = [];
 
