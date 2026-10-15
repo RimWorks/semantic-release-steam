@@ -2,10 +2,11 @@ import { resolve } from 'node:path';
 import { deriveWorkshopMetadata } from './lib/about.mjs';
 import { verifySteamPublishConfig } from './lib/config.mjs';
 import { buildSteamDescription } from './lib/description.mjs';
-import { compileReadme, writeCompiledReadme } from './lib/readme.mjs';
+import { languageInt } from './lib/languages.mjs';
+import { compileReadme, discoverLocalizedTemplates, writeCompiledReadme } from './lib/readme.mjs';
 import { stageModContent } from './lib/stage-content.mjs';
 import { uploadWorkshopItem } from './lib/steamcmd.mjs';
-import { applyWorkshopTags } from './lib/workshop-tags.mjs';
+import { applyWorkshopUpdates } from './lib/workshop-tags.mjs';
 
 function isDryRun(context) {
   return Boolean(context?.options?.dryRun);
@@ -21,14 +22,16 @@ function resolveModMetadata(mod, target) {
   };
 }
 
-async function withDerivedDefaults(mods = [], cwd, derive) {
+async function withDerivedDefaults(mods = [], cwd, derive, discover) {
   return Promise.all(
     mods.map(async mod => {
-      const derived = await derive(resolve(cwd, mod.path));
+      const modPath = resolve(cwd, mod.path);
+      const derived = await derive(modPath);
       return {
         ...mod,
         previewfile: mod.previewfile ?? derived.previewfile,
         tags: mod.tags ?? derived.tags,
+        localizedTemplates: await discover({ modPath }),
       };
     }),
   );
@@ -42,17 +45,19 @@ function resolveOverrides(context) {
     uploadItem: context.uploadWorkshopItem ?? uploadWorkshopItem,
     compile: context.compileReadme ?? compileReadme,
     writeCompiled: context.writeCompiledReadme ?? writeCompiledReadme,
-    applyTags: context.applyWorkshopTags ?? applyWorkshopTags,
+    applyUpdates: context.applyWorkshopUpdates ?? applyWorkshopUpdates,
     deriveMetadata: context.deriveWorkshopMetadata ?? deriveWorkshopMetadata,
+    discoverTemplates: context.discoverLocalizedTemplates ?? discoverLocalizedTemplates,
   };
 }
 
-function compileModReadme(pluginConfig, modPath, overrides) {
+function compileModReadme(pluginConfig, modPath, overrides, templateFilename) {
   const compileArgs = {
     modPath,
     header: pluginConfig.descriptionHeader ?? '',
     footer: pluginConfig.descriptionFooter ?? '',
     assetDirNameTransform: pluginConfig.assetDirNameTransform,
+    templateFilename,
   };
 
   return pluginConfig.outputReadme ? overrides.writeCompiled(compileArgs) : overrides.compile(compileArgs);
@@ -70,6 +75,11 @@ function describeDryRun({ mod, target, publishedFileId, version, description, me
   return `[dry-run] would publish ${mod.name} to ${target} workshop item ${publishedFileId} (${details.join(', ')})`;
 }
 
+function describeDryRunLanguage(mod, entry) {
+  return `[dry-run] would set ${mod.name} ${entry.code} (ELanguage ${entry.language}) ` +
+    `title: "${entry.title}", description: ${entry.description.length} chars`;
+}
+
 export async function verifyConditions(pluginConfig, context) {
   const overrides = resolveOverrides(context);
 
@@ -81,6 +91,7 @@ export async function verifyConditions(pluginConfig, context) {
       pluginConfig.mods,
       context.cwd ?? process.cwd(),
       overrides.deriveMetadata,
+      overrides.discoverTemplates,
     ),
     appId: pluginConfig.appId,
   });
@@ -94,7 +105,12 @@ export async function publish(pluginConfig, context) {
     env: context.env,
     branchName: context.branch.name,
     branchTargets: pluginConfig.branchTargets,
-    mods: await withDerivedDefaults(pluginConfig.mods, cwd, overrides.deriveMetadata),
+    mods: await withDerivedDefaults(
+      pluginConfig.mods,
+      cwd,
+      overrides.deriveMetadata,
+      overrides.discoverTemplates,
+    ),
     appId: pluginConfig.appId,
   });
 
@@ -123,6 +139,21 @@ export async function publish(pluginConfig, context) {
     const publishedFileId = mod.workshopIds[state.target];
     const changenote = context.nextRelease.notes || context.nextRelease.version;
 
+    const localized = [];
+    for (const { code, filename } of mod.localizedTemplates ?? []) {
+      const localizedMarkdown = await compileModReadme(pluginConfig, modPath, overrides, filename);
+      localized.push({
+        code,
+        language: languageInt(code),
+        title: metadata.title,
+        description: await overrides.buildDescription({
+          modPath,
+          markdown: localizedMarkdown,
+          assetBaseUrl,
+        }),
+      });
+    }
+
     if (dryRun) {
       context.logger.log(
         describeDryRun({
@@ -134,6 +165,9 @@ export async function publish(pluginConfig, context) {
           metadata,
         }),
       );
+      for (const entry of localized) {
+        context.logger.log(describeDryRunLanguage(mod, entry));
+      }
       continue;
     }
 
@@ -159,11 +193,16 @@ export async function publish(pluginConfig, context) {
     });
 
     context.logger.log(`Published ${mod.name} to ${state.target} workshop item ${publishedFileId}`);
-    taggableMods.push({ name: mod.name, publishedFileId, tags: metadata.tags });
+    taggableMods.push({
+      name: mod.name,
+      publishedFileId,
+      tags: metadata.tags,
+      ...(localized.length > 0 ? { localized } : {}),
+    });
   }
 
   if (!dryRun) {
-    await overrides.applyTags({
+    await overrides.applyUpdates({
       steamUsername: context.env.STEAM_USERNAME,
       steamPassword: context.env.STEAM_PASSWORD,
       steamRefreshToken: context.env.STEAM_REFRESH_TOKEN,

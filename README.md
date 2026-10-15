@@ -43,14 +43,29 @@ Set these variables in your release environment:
 - `STEAM_USERNAME`
 - `STEAM_CONFIG_VDF` or `STEAM_CONFIG_VDF_B64`
 - `STEAMCMD_PATH` if SteamCMD isn't at `~/steamcmd/steamcmd.sh`
-- `STEAM_PASSWORD` or `STEAM_REFRESH_TOKEN`, only if any mod sets `tags` - these set Steam
-  Workshop browse tags over a separate login, since SteamCMD itself has no way to set them.
-  `STEAM_REFRESH_TOKEN` skips the Steam Guard prompt; `STEAM_PASSWORD` needs one approval tap
-  per publish.
+- `STEAM_PASSWORD` or `STEAM_REFRESH_TOKEN`, only if any mod sets `tags` or has a localized
+  README template - these log in to Steam over a separate connection and set Workshop browse
+  tags and localized titles and descriptions, since SteamCMD itself has no way to set any of
+  them. `STEAM_REFRESH_TOKEN` skips the Steam Guard prompt; `STEAM_PASSWORD` needs one approval
+  tap per publish.
 
 SteamCMD must have a saved login in its `config/config.vdf`. See the [SteamCMD Workshop upload guide](https://partner.steamgames.com/doc/features/workshop/implementation#SteamCmdIntegration) for the item setup and VDF format.
 
 Put `README.template.md` in each mod directory. Add `.steamignore` there if you need to exclude files from the upload.
+
+### Localized descriptions
+
+Add a `README.<language>.template.md` file next to `README.template.md` to publish a translated description for that language. `README.template.md` itself always stays the English description.
+
+`<language>` is a Steam API language code. Steam assigns these independently of ISO codes. Korean is `koreana`, and Brazilian Portuguese is `brazilian`. The plugin accepts these 25 codes:
+
+`german`, `french`, `italian`, `koreana`, `spanish`, `schinese`, `tchinese`, `russian`, `thai`, `japanese`, `portuguese`, `polish`, `danish`, `dutch`, `finnish`, `norwegian`, `swedish`, `romanian`, `turkish`, `hungarian`, `czech`, `brazilian`, `bulgarian`, `greek`, `ukrainian`
+
+See Valve's [language table](https://github.com/alliedmodders/hl2sdk/blob/master/common/language.cpp) for the source of these codes and the full list Steam defines. `arabic`, `indonesian`, `latam`, and `vietnamese` are missing on purpose. Valve has not assigned any of them a language number for this API. The plugin has no integer to send for those languages and cannot publish a description in them.
+
+`README.english.template.md` is rejected. Slot 0, the one `README.template.md` already fills, is English.
+
+A mod with any localized template needs a `title`, set on the mod or in a per-target `metadata` override. A localized update sent with no title leaves that language's title blank on Steam. It does not fall back to the English title.
 
 Two fields come from the mod directory when you leave them out of the config. `tags` becomes every `<li>` under `<supportedVersions>` in `About/About.xml`, plus `Mod`. `previewfile` becomes `About/Preview.png` when that file exists. Setting either one in the config, or in a per-target `metadata` override, wins.
 

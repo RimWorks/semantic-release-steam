@@ -5,7 +5,7 @@ import { createRequire } from 'node:module';
 import protobuf from 'protobufjs';
 import {
   addLocalizedUpdateFields,
-  applyWorkshopTags,
+  applyWorkshopUpdates,
   canPollForGuardApproval,
   logOffAndWait,
   connectWithTimeout,
@@ -33,8 +33,8 @@ function detailsReader(details, seen = []) {
   };
 }
 
-test('applyWorkshopTags returns without logging in when no mod has tags or localized entries', async () => {
-  const result = await applyWorkshopTags({
+test('applyWorkshopUpdates returns without logging in when no mod has tags or localized entries', async () => {
+  const result = await applyWorkshopUpdates({
     steamUsername: 'u',
     steamPassword: 'p',
     appId: '294100',
@@ -56,7 +56,7 @@ test('applyWorkshopTags returns without logging in when no mod has tags or local
 test('a mod with only localized entries does not hit the early return', async () => {
   const sent = [];
 
-  await applyWorkshopTags({
+  await applyWorkshopUpdates({
     steamRefreshToken: 'rt',
     appId: '294100',
     mods: [{
@@ -106,7 +106,7 @@ test('a refresh token skips the login step entirely', async () => {
   const loginCalls = [];
   const connectCalls = [];
 
-  await applyWorkshopTags({
+  await applyWorkshopUpdates({
     steamRefreshToken: 'rt-123',
     appId: '294100',
     mods: [{ name: 'M', publishedFileId: '1', tags: ['Mod'] }],
@@ -126,7 +126,7 @@ test('the password path logs in first, then connects with the returned refresh t
   const loginCalls = [];
   const connectCalls = [];
 
-  await applyWorkshopTags({
+  await applyWorkshopUpdates({
     steamUsername: 'builder',
     steamPassword: 'secret',
     appId: '294100',
@@ -148,7 +148,7 @@ test('a rejected login propagates and never reaches connect', async () => {
   const connectCalls = [];
 
   await assert.rejects(
-    () => applyWorkshopTags({
+    () => applyWorkshopUpdates({
       steamUsername: 'builder',
       steamPassword: 'secret',
       appId: '294100',
@@ -169,7 +169,7 @@ test('a rejected connect propagates and never reaches sendUpdate', async () => {
   const sendCalls = [];
 
   await assert.rejects(
-    () => applyWorkshopTags({
+    () => applyWorkshopUpdates({
       steamRefreshToken: 'rt',
       appId: '294100',
       mods: [{ name: 'M', publishedFileId: '1', tags: ['Mod'] }],
@@ -188,7 +188,7 @@ test('a rejected Update#1 call fails the whole publish and still disconnects', a
   const disconnectCalls = [];
 
   await assert.rejects(
-    () => applyWorkshopTags({
+    () => applyWorkshopUpdates({
       steamRefreshToken: 'rt',
       appId: '294100',
       mods: [{ name: 'M', publishedFileId: '1', tags: ['Mod'] }],
@@ -208,7 +208,7 @@ test('a verify mismatch fails the publish and names the mod and language pairs',
   const sent = [];
 
   await assert.rejects(
-    () => applyWorkshopTags({
+    () => applyWorkshopUpdates({
       steamRefreshToken: 'rt',
       appId: '294100',
       mods: [
@@ -239,7 +239,7 @@ test('a verify mismatch fails the publish and names the mod and language pairs',
 test('sends exactly the configured tags, not merged with anything else', async () => {
   const sent = [];
 
-  await applyWorkshopTags({
+  await applyWorkshopUpdates({
     steamRefreshToken: 'rt',
     appId: '294100',
     mods: [{ name: 'M', publishedFileId: '1', tags: ['QoL', 'Mod'] }],
@@ -256,7 +256,7 @@ test('sends exactly the configured tags, not merged with anything else', async (
 test('disconnects after a fully successful run', async () => {
   const disconnectCalls = [];
 
-  await applyWorkshopTags({
+  await applyWorkshopUpdates({
     steamRefreshToken: 'rt',
     appId: '294100',
     mods: [{ name: 'M', publishedFileId: '1', tags: ['Mod'] }],
@@ -438,7 +438,7 @@ test('verifyPublishedItem compares visibility when the caller sent one', async (
 test('a localized send always carries both the title and the description', async () => {
   const sent = [];
 
-  await applyWorkshopTags({
+  await applyWorkshopUpdates({
     steamRefreshToken: 'rt',
     appId: '294100',
     mods: [{
@@ -467,7 +467,7 @@ test('a localized send always carries both the title and the description', async
 test('a mod with tags sends them on the default update and on every localized one', async () => {
   const sent = [];
 
-  await applyWorkshopTags({
+  await applyWorkshopUpdates({
     steamRefreshToken: 'rt',
     appId: '294100',
     mods: [{
@@ -497,7 +497,7 @@ test('a session death mid-run rejects instead of hanging on a stuck sendUpdate',
   const disconnectCalls = [];
 
   await assert.rejects(
-    () => applyWorkshopTags({
+    () => applyWorkshopUpdates({
       steamRefreshToken: 'rt',
       appId: '294100',
       mods: [{ name: 'M', publishedFileId: '1', tags: ['Mod'] }],

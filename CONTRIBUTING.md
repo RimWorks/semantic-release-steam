@@ -90,6 +90,25 @@ Auth is SteamCMD's own: `STEAM_USERNAME` plus either `STEAM_CONFIG_VDF` (a path)
 `+@NoPromptForPassword 1` means an unauthenticated `config.vdf` fails instead of hanging on a
 prompt.
 
+## Workshop tags and localized descriptions
+
+`lib/workshop-tags.mjs` sets Steam Workshop browse tags and localized titles and descriptions
+over a direct Steam CM connection, since SteamCMD has no way to set either. Watch these when
+you touch it:
+
+- **The bundled proto is missing two fields.** The proto bundled inside `steam-user` 5.3.0
+  predates field 17 (`language`) and field 18 (`update_tags`) on `CPublishedFile_Update_Request`.
+  protobufjs drops an unknown field with no error, so a send that sets either one lands silently
+  on slot 0 instead of failing loud. `addLocalizedUpdateFields` adds both fields at runtime,
+  each behind a check for whether the field is already there, so it does nothing once
+  `steam-user` bundles a proto that already has them. `tests/workshop-tags.test.mjs` asserts
+  the encoded bytes. A dropped field fails that test instead of silently writing the wrong slot.
+- **`steam-user`'s own `getPublishedFileDetails` helper hardcodes `language: 0`.** A verify step
+  built on that helper always reads back the English slot, no matter which language slot was
+  written, and reports a mismatch that is not really there. Read the published item through
+  `user._sendUnified('PublishedFile.GetDetails#1', { ..., language })` directly, passing the
+  language you wrote.
+
 ## The test seam
 
 `resolveOverrides` reads `buildSteamDescription`, `stageModContent`, `uploadWorkshopItem`,

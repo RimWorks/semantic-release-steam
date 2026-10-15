@@ -264,6 +264,62 @@ test('throws when resolveLanguage rejects a localized template code', async () =
   );
 });
 
+test('rejects an unknown localized template code with no resolver passed in', async () => {
+  await assert.rejects(
+    () => verifySteamPublishConfig({
+      env: { ...baseEnv(), STEAM_PASSWORD: 'secret' },
+      branchName: 'main',
+      branchTargets: { main: 'stable' },
+      mods: [{
+        name: 'MyMod',
+        path: 'MyMod',
+        workshopIds: { stable: '1' },
+        title: 'My Mod',
+        localizedTemplates: [{ code: 'klingon', filename: 'README.klingon.template.md' }],
+      }],
+      appId: '294100',
+    }),
+    /Mod "MyMod" has a localized template "README\.klingon\.template\.md" with an unusable language code "klingon"/,
+  );
+});
+
+test('rejects the english localized template code with no resolver passed in', async () => {
+  await assert.rejects(
+    () => verifySteamPublishConfig({
+      env: { ...baseEnv(), STEAM_PASSWORD: 'secret' },
+      branchName: 'main',
+      branchTargets: { main: 'stable' },
+      mods: [{
+        name: 'MyMod',
+        path: 'MyMod',
+        workshopIds: { stable: '1' },
+        title: 'My Mod',
+        localizedTemplates: [{ code: 'english', filename: 'README.english.template.md' }],
+      }],
+      appId: '294100',
+    }),
+    /Mod "MyMod" has a localized template "README\.english\.template\.md" with an unusable language code "english"/,
+  );
+});
+
+test('accepts a real localized template code with no resolver passed in', async () => {
+  const result = await verifySteamPublishConfig({
+    env: { ...baseEnv(), STEAM_PASSWORD: 'secret' },
+    branchName: 'main',
+    branchTargets: { main: 'stable' },
+    mods: [{
+      name: 'MyMod',
+      path: 'MyMod',
+      workshopIds: { stable: '1' },
+      title: 'My Mod',
+      localizedTemplates: [{ code: 'schinese', filename: 'README.schinese.template.md' }],
+    }],
+    appId: '294100',
+  });
+
+  assert.equal(result.shouldPublish, true);
+});
+
 test('leaves a mod with no localized templates unaffected by the localization checks', async () => {
   const result = await verifySteamPublishConfig({
     env: baseEnv(),

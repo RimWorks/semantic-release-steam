@@ -79,6 +79,7 @@ test('publish compiles README in-memory and passes branch asset base URL to desc
     header: 'Header',
     footer: 'Footer',
     assetDirNameTransform: undefined,
+    templateFilename: undefined,
   });
   assert.deepEqual(descriptionCalls, [
     {
@@ -221,7 +222,7 @@ test('publish per-target metadata overrides per-mod defaults', async () => {
       buildSteamDescription: async () => 'd',
       stageModContent: async () => '/s',
       uploadWorkshopItem: async opts => { uploadCalls.push(opts); },
-      applyWorkshopTags: async () => {},
+      applyWorkshopUpdates: async () => {},
     },
   );
 
@@ -287,7 +288,7 @@ test('publish threads steamHome through to the uploader when STEAM_CONFIG_VDF_B6
   assert.match(uploadCalls[0].steamHome, /semantic-release-steam-/);
 });
 
-test('publish calls applyWorkshopTags once after the upload loop, with every mods tags', async () => {
+test('publish calls applyWorkshopUpdates once after the upload loop, with every mods tags', async () => {
   const applyTagsCalls = [];
 
   await plugin.publish(
@@ -309,7 +310,7 @@ test('publish calls applyWorkshopTags once after the upload loop, with every mod
       buildSteamDescription: async () => 'd',
       stageModContent: async () => '/s',
       uploadWorkshopItem: async () => undefined,
-      applyWorkshopTags: async opts => { applyTagsCalls.push(opts); },
+      applyWorkshopUpdates: async opts => { applyTagsCalls.push(opts); },
     },
   );
 
@@ -323,7 +324,7 @@ test('publish calls applyWorkshopTags once after the upload loop, with every mod
   ]);
 });
 
-test('publish never calls applyWorkshopTags on dry run', async () => {
+test('publish never calls applyWorkshopUpdates on dry run', async () => {
   const applyTagsCalls = [];
   const stageCalls = [];
   const uploadCalls = [];
@@ -345,7 +346,7 @@ test('publish never calls applyWorkshopTags on dry run', async () => {
       buildSteamDescription: async () => 'd',
       stageModContent: async opts => { stageCalls.push(opts); return '/s'; },
       uploadWorkshopItem: async opts => { uploadCalls.push(opts); },
-      applyWorkshopTags: async opts => { applyTagsCalls.push(opts); },
+      applyWorkshopUpdates: async opts => { applyTagsCalls.push(opts); },
     },
   );
 
@@ -376,7 +377,7 @@ test('publish falls back to metadata derived from the mod directory', async () =
         assert.equal(modPath, '/repo/MyMod');
         return { tags: ['1.6', 'Mod'], previewfile: '/repo/MyMod/About/Preview.png' };
       },
-      applyWorkshopTags: async () => undefined,
+      applyWorkshopUpdates: async () => undefined,
       uploadWorkshopItem: async opts => { uploadCalls.push(opts); },
     },
   );
@@ -410,7 +411,7 @@ test('publish prefers configured tags and previewfile over derived ones', async 
       buildSteamDescription: async () => 'd',
       stageModContent: async () => '/s',
       deriveWorkshopMetadata: async () => ({ tags: ['1.6', 'Mod'], previewfile: '/derived.png' }),
-      applyWorkshopTags: async () => undefined,
+      applyWorkshopUpdates: async () => undefined,
       uploadWorkshopItem: async opts => { uploadCalls.push(opts); },
     },
   );
@@ -436,4 +437,145 @@ test('verifyConditions counts derived tags when it checks for tag credentials', 
     ),
     /STEAM_PASSWORD or STEAM_REFRESH_TOKEN is required/,
   );
+});
+
+test('publish sends one localized update per discovered template and uploads english only', async () => {
+  const applyCalls = [];
+  const compileCalls = [];
+  const uploadCalls = [];
+
+  await plugin.publish(
+    {
+      appId: '294100',
+      branchTargets: { main: 'stable' },
+      mods: [{
+        name: 'MyMod',
+        path: 'MyMod',
+        workshopIds: { stable: '1' },
+        title: 'My Mod',
+        tags: ['QoL'],
+      }],
+    },
+    {
+      branch: { name: 'main' },
+      cwd: '/repo',
+      env: { STEAM_USERNAME: 'u', STEAM_CONFIG_VDF: '/cv', STEAM_PASSWORD: 'secret' },
+      nextRelease: { version: '1.0.0', notes: '' },
+      logger: { log() {} },
+      discoverLocalizedTemplates: async () => [
+        { code: 'german', filename: 'README.german.template.md' },
+        { code: 'koreana', filename: 'README.koreana.template.md' },
+      ],
+      compileReadme: async opts => {
+        compileCalls.push(opts.templateFilename);
+        return `md for ${opts.templateFilename ?? 'english'}`;
+      },
+      buildSteamDescription: async opts => `bbcode:${opts.markdown}`,
+      stageModContent: async () => '/s',
+      uploadWorkshopItem: async opts => { uploadCalls.push(opts); },
+      applyWorkshopUpdates: async opts => { applyCalls.push(opts); },
+    },
+  );
+
+  assert.deepEqual(compileCalls, [
+    undefined,
+    'README.german.template.md',
+    'README.koreana.template.md',
+  ]);
+  assert.equal(uploadCalls.length, 1);
+  assert.equal(uploadCalls[0].description, 'bbcode:md for english');
+
+  assert.equal(applyCalls.length, 1);
+  assert.deepEqual(applyCalls[0].mods, [{
+    name: 'MyMod',
+    publishedFileId: '1',
+    tags: ['QoL'],
+    localized: [
+      {
+        code: 'german',
+        language: 1,
+        title: 'My Mod',
+        description: 'bbcode:md for README.german.template.md',
+      },
+      {
+        code: 'koreana',
+        language: 4,
+        title: 'My Mod',
+        description: 'bbcode:md for README.koreana.template.md',
+      },
+    ],
+  }]);
+});
+
+test('publish dry run logs one line per localized language and calls nothing', async () => {
+  const logs = [];
+  const stageCalls = [];
+  const uploadCalls = [];
+  const applyCalls = [];
+
+  await plugin.publish(
+    {
+      appId: '294100',
+      branchTargets: { main: 'stable' },
+      mods: [{
+        name: 'MyMod',
+        path: 'MyMod',
+        workshopIds: { stable: '1' },
+        title: 'My Mod',
+      }],
+    },
+    {
+      branch: { name: 'main' },
+      cwd: '/repo',
+      env: { STEAM_USERNAME: 'u', STEAM_CONFIG_VDF: '/cv', STEAM_PASSWORD: 'secret' },
+      nextRelease: { version: '1.0.0', notes: '' },
+      options: { dryRun: true },
+      logger: { log: msg => logs.push(msg) },
+      discoverLocalizedTemplates: async () => [
+        { code: 'french', filename: 'README.french.template.md' },
+      ],
+      compileReadme: async () => 'md',
+      buildSteamDescription: async () => '12345',
+      stageModContent: async opts => { stageCalls.push(opts); return '/s'; },
+      uploadWorkshopItem: async opts => { uploadCalls.push(opts); },
+      applyWorkshopUpdates: async opts => { applyCalls.push(opts); },
+    },
+  );
+
+  assert.equal(stageCalls.length, 0);
+  assert.equal(uploadCalls.length, 0);
+  assert.equal(applyCalls.length, 0);
+  assert.equal(logs.length, 2);
+  assert.match(logs[1], /french \(ELanguage 2\)/);
+  assert.match(logs[1], /title: "My Mod"/);
+  assert.match(logs[1], /description: 5 chars/);
+});
+
+test('publish with no localized template passes no localized entry to the updates call', async () => {
+  const applyCalls = [];
+
+  await plugin.publish(
+    {
+      appId: '294100',
+      branchTargets: { main: 'stable' },
+      mods: [{ name: 'MyMod', path: 'MyMod', workshopIds: { stable: '1' }, tags: ['QoL'] }],
+    },
+    {
+      branch: { name: 'main' },
+      cwd: '/repo',
+      env: { STEAM_USERNAME: 'u', STEAM_CONFIG_VDF: '/cv', STEAM_PASSWORD: 'secret' },
+      nextRelease: { version: '1.0.0', notes: '' },
+      logger: { log() {} },
+      discoverLocalizedTemplates: async () => [],
+      compileReadme: async () => 'md',
+      buildSteamDescription: async () => 'd',
+      stageModContent: async () => '/s',
+      uploadWorkshopItem: async () => undefined,
+      applyWorkshopUpdates: async opts => { applyCalls.push(opts); },
+    },
+  );
+
+  assert.deepEqual(applyCalls[0].mods, [
+    { name: 'MyMod', publishedFileId: '1', tags: ['QoL'] },
+  ]);
 });

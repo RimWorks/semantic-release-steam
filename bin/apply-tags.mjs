@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { verifySteamPublishConfig } from '../lib/config.mjs';
-import { applyWorkshopTags } from '../lib/workshop-tags.mjs';
+import { applyWorkshopUpdates } from '../lib/workshop-tags.mjs';
 
 function parseArgs(argv) {
   const args = { config: null, target: null };
@@ -24,7 +24,7 @@ export async function run({
   logger = console,
   readConfig = path => readFile(path, 'utf8'),
   verifyConfig = verifySteamPublishConfig,
-  applyTags = applyWorkshopTags,
+  applyTags = applyWorkshopUpdates,
 } = {}) {
   const { config: configPath, target: branchName } = parseArgs(argv);
   if (!configPath || !branchName) {

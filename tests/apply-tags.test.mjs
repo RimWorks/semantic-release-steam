@@ -44,7 +44,7 @@ test('throws when the branch has no configured target', async () => {
   );
 });
 
-test('resolves mods for the target branch and calls applyWorkshopTags with per-target tag overrides', async () => {
+test('resolves mods for the target branch and calls applyWorkshopUpdates with per-target tag overrides', async () => {
   const applyCalls = [];
 
   await run({
