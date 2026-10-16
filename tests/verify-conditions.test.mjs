@@ -99,6 +99,19 @@ test('throws with did-you-mean when the target key looks misspelled', async () =
   );
 });
 
+test('names an empty value rather than suggesting the key as its own typo', async () => {
+  await assert.rejects(
+    () => verifySteamPublishConfig({
+      env: baseEnv(),
+      branchName: 'beta',
+      branchTargets: { main: 'stable', beta: 'beta' },
+      mods: [{ name: 'MyMod', path: 'MyMod', workshopIds: { stable: '1', beta: undefined } }],
+      appId: '294100',
+    }),
+    /Mod "MyMod" has a workshopIds entry for target "beta", but its value is empty\./,
+  );
+});
+
 test('returns publishable mods when all configured correctly', async () => {
   const result = await verifySteamPublishConfig({
     env: baseEnv(),
