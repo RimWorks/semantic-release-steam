@@ -1,7 +1,7 @@
 import { resolve } from 'node:path';
 import { deriveWorkshopMetadata } from './lib/about.mjs';
 import { verifySteamPublishConfig } from './lib/config.mjs';
-import { buildSteamDescription } from './lib/description.mjs';
+import { assertDescriptionFits, buildSteamDescription } from './lib/description.mjs';
 import { languageInt, localizedValue } from './lib/languages.mjs';
 import { compileReadme, discoverLocalizedTemplates, writeCompiledReadme } from './lib/readme.mjs';
 import { stageModContent } from './lib/stage-content.mjs';
@@ -138,6 +138,7 @@ export async function publish(pluginConfig, context) {
       markdown,
       assetBaseUrl,
     });
+    assertDescriptionFits(description, `Mod "${mod.name}" english`);
 
     const metadata = resolveModMetadata(mod, state.target);
     const titleOption = metadata.title;
@@ -154,15 +155,18 @@ export async function publish(pluginConfig, context) {
         filename,
         code,
       );
+      const localizedDescription = await overrides.buildDescription({
+        modPath,
+        markdown: localizedMarkdown,
+        assetBaseUrl,
+      });
+      assertDescriptionFits(localizedDescription, `Mod "${mod.name}" ${code}`);
+
       localized.push({
         code,
         language: languageInt(code),
         title: localizedValue(titleOption, code),
-        description: await overrides.buildDescription({
-          modPath,
-          markdown: localizedMarkdown,
-          assetBaseUrl,
-        }),
+        description: localizedDescription,
       });
     }
 

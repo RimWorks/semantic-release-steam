@@ -631,3 +631,39 @@ test('publish gives each language its own header, footer and title', async () =>
     [['spanish', 'Mi Mod'], ['russian', 'My Mod']],
   );
 });
+
+test('publish refuses an oversized language before it uploads anything', async () => {
+  const uploadCalls = [];
+  const applyCalls = [];
+
+  await assert.rejects(
+    plugin.publish(
+      {
+        appId: '294100',
+        branchTargets: { main: 'stable' },
+        mods: [{ name: 'MyMod', path: 'MyMod', workshopIds: { stable: '1' }, title: 'My Mod' }],
+      },
+      {
+        branch: { name: 'main' },
+        cwd: '/repo',
+        env: { STEAM_USERNAME: 'u', STEAM_CONFIG_VDF: '/cv', STEAM_PASSWORD: 'secret' },
+        nextRelease: { version: '1.0.0', notes: '' },
+        logger: { log() {} },
+        discoverLocalizedTemplates: async () => [
+          { code: 'russian', filename: 'README.russian.template.md' },
+        ],
+        compileReadme: async opts => (opts.templateFilename ? 'russian-md' : 'md'),
+        buildSteamDescription: async opts => (
+          opts.markdown === 'md' ? 'short' : 'а'.repeat(4001)
+        ),
+        stageModContent: async () => '/s',
+        uploadWorkshopItem: async opts => { uploadCalls.push(opts); },
+        applyWorkshopUpdates: async opts => { applyCalls.push(opts); },
+      },
+    ),
+    { message: /Mod "MyMod" russian description is 8002 bytes/ },
+  );
+
+  assert.deepEqual(uploadCalls, []);
+  assert.deepEqual(applyCalls, []);
+});

@@ -81,6 +81,10 @@ descriptionHeader: {
 
 A map requires a `default` entry. That is the English slot, and it is the fallback for any language the map leaves out. `english` is not a valid key: use `default` instead.
 
+### The 8000 byte description limit
+
+Steam caps a Workshop description at 8000 **bytes**, not characters. UTF-8 spends 2 bytes on each Cyrillic letter and 3 on each CJK one, so a Russian description runs out of room at roughly 4000 characters and a Chinese one at roughly 2600. Steam answers an oversized update with `eresult 8` and no explanation, so the plugin measures every description first and fails with the mod, the language and the byte count. A dry run reports it too.
+
 Two fields come from the mod directory when you leave them out of the config. `tags` becomes every `<li>` under `<supportedVersions>` in `About/About.xml`, plus `Mod`. `previewfile` becomes `About/Preview.png` when that file exists. Setting either one in the config, or in a per-target `metadata` override, wins.
 
 The plugin updates Workshop items. Create each item before your first release, then add its ID to `workshopIds`.

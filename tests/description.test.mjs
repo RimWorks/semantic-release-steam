@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildSteamDescription, renderSteamBBCode } from '../lib/description.mjs';
+import { assertDescriptionFits, buildSteamDescription, renderSteamBBCode } from '../lib/description.mjs';
 
 test('returns fallback description when README is missing', async () => {
   const fixturePath = new URL('./fixtures/mod', import.meta.url).pathname;
@@ -58,4 +58,23 @@ test('buildSteamDescription reads from README.md when markdown is not passed', a
   const out = await buildSteamDescription({ modPath });
   assert.match(out, /\[h1\]Title\[\/h1\]/);
   assert.match(out, /Body/);
+});
+
+test('assertDescriptionFits accepts a description at the byte limit', () => {
+  assert.doesNotThrow(() => assertDescriptionFits('a'.repeat(8000), 'Mod "MyMod" english'));
+});
+
+test('assertDescriptionFits counts bytes, not characters', () => {
+  const cyrillic = '\u0430'.repeat(4001);
+
+  assert.equal(cyrillic.length, 4001);
+  assert.throws(() => assertDescriptionFits(cyrillic, 'Mod "MyMod" russian'), {
+    message: /Mod "MyMod" russian description is 8002 bytes.*8000 byte limit \(4001 characters\)/s,
+  });
+});
+
+test('assertDescriptionFits names the language that is too long', () => {
+  assert.throws(() => assertDescriptionFits('a'.repeat(8001), 'Mod "MyMod" schinese'), {
+    message: /Mod "MyMod" schinese description is 8001 bytes/,
+  });
 });
