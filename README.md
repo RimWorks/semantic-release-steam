@@ -67,6 +67,20 @@ See Valve's [language table](https://github.com/alliedmodders/hl2sdk/blob/master
 
 A mod with any localized template needs a `title`, set on the mod or in a per-target `metadata` override. A localized update sent with no title leaves that language's title blank on Steam. It does not fall back to the English title.
 
+### Per-language titles, headers and footers
+
+`title`, `descriptionHeader` and `descriptionFooter` each take either one string for every language, or a map that varies by language:
+
+```js
+descriptionHeader: {
+  default: 'Spoilers below.',
+  spanish: 'Spoilers abajo.',
+  russian: 'Ниже спойлеры.',
+},
+```
+
+A map requires a `default` entry. That is the English slot, and it is the fallback for any language the map leaves out. `english` is not a valid key: use `default` instead.
+
 Two fields come from the mod directory when you leave them out of the config. `tags` becomes every `<li>` under `<supportedVersions>` in `About/About.xml`, plus `Mod`. `previewfile` becomes `About/Preview.png` when that file exists. Setting either one in the config, or in a per-target `metadata` override, wins.
 
 The plugin updates Workshop items. Create each item before your first release, then add its ID to `workshopIds`.

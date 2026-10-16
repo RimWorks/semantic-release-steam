@@ -350,3 +350,69 @@ test('does not require a tags credential when the tagged mod is not publishable 
   assert.equal(result.shouldPublish, true);
   assert.equal(result.mods.length, 1);
 });
+
+const localizableBase = extra => ({
+  env: { ...baseEnv(), STEAM_PASSWORD: 'secret' },
+  branchName: 'main',
+  branchTargets: { main: 'stable' },
+  mods: [{ name: 'MyMod', path: 'MyMod', workshopIds: { stable: '1' }, title: 'My Mod' }],
+  appId: '294100',
+  ...extra,
+});
+
+test('names the closest language code when a header map has a typo', async () => {
+  await assert.rejects(
+    () => verifySteamPublishConfig(localizableBase({
+      descriptionHeader: { default: 'Spoilers below.', spainsh: 'Spoilers abajo.' },
+    })),
+    /descriptionHeader has an unknown Steam language code "spainsh"\. Did you mean "spanish"\?/,
+  );
+});
+
+test('rejects a footer map with no default entry', async () => {
+  await assert.rejects(
+    () => verifySteamPublishConfig(localizableBase({
+      descriptionFooter: { spanish: 'Gracias por jugar.' },
+    })),
+    /descriptionFooter is a map with no "default" entry/,
+  );
+});
+
+test('rejects an english key and points at default instead', async () => {
+  await assert.rejects(
+    () => verifySteamPublishConfig(localizableBase({
+      descriptionHeader: { default: 'Spoilers below.', english: 'Spoilers below.' },
+    })),
+    /descriptionHeader has an "english" key\. The English slot reads "default"/,
+  );
+});
+
+test('rejects a title map that leaves out default', async () => {
+  await assert.rejects(
+    () => verifySteamPublishConfig(localizableBase({
+      mods: [{
+        name: 'MyMod',
+        path: 'MyMod',
+        workshopIds: { stable: '1' },
+        title: { spanish: 'Mi Mod' },
+        localizedTemplates: [{ code: 'spanish', filename: 'README.spanish.template.md' }],
+      }],
+    })),
+    /Mod "MyMod" title is a map with no "default" entry/,
+  );
+});
+
+test('accepts a title map and a header map that both carry a default', async () => {
+  const result = await verifySteamPublishConfig(localizableBase({
+    descriptionHeader: { default: 'Spoilers below.', spanish: 'Spoilers abajo.' },
+    mods: [{
+      name: 'MyMod',
+      path: 'MyMod',
+      workshopIds: { stable: '1' },
+      title: { default: 'My Mod', spanish: 'Mi Mod' },
+      localizedTemplates: [{ code: 'spanish', filename: 'README.spanish.template.md' }],
+    }],
+  }));
+
+  assert.equal(result.shouldPublish, true);
+});

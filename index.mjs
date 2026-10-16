@@ -2,7 +2,7 @@ import { resolve } from 'node:path';
 import { deriveWorkshopMetadata } from './lib/about.mjs';
 import { verifySteamPublishConfig } from './lib/config.mjs';
 import { buildSteamDescription } from './lib/description.mjs';
-import { languageInt } from './lib/languages.mjs';
+import { languageInt, localizedValue } from './lib/languages.mjs';
 import { compileReadme, discoverLocalizedTemplates, writeCompiledReadme } from './lib/readme.mjs';
 import { stageModContent } from './lib/stage-content.mjs';
 import { uploadWorkshopItem } from './lib/steamcmd.mjs';
@@ -51,11 +51,11 @@ function resolveOverrides(context) {
   };
 }
 
-function compileModReadme(pluginConfig, modPath, overrides, templateFilename) {
+function compileModReadme(pluginConfig, modPath, overrides, templateFilename, code = 'default') {
   const compileArgs = {
     modPath,
-    header: pluginConfig.descriptionHeader ?? '',
-    footer: pluginConfig.descriptionFooter ?? '',
+    header: localizedValue(pluginConfig.descriptionHeader, code) ?? '',
+    footer: localizedValue(pluginConfig.descriptionFooter, code) ?? '',
     assetDirNameTransform: pluginConfig.assetDirNameTransform,
     templateFilename,
   };
@@ -94,6 +94,8 @@ export async function verifyConditions(pluginConfig, context) {
       overrides.discoverTemplates,
     ),
     appId: pluginConfig.appId,
+    descriptionHeader: pluginConfig.descriptionHeader,
+    descriptionFooter: pluginConfig.descriptionFooter,
   });
 }
 
@@ -112,6 +114,8 @@ export async function publish(pluginConfig, context) {
       overrides.discoverTemplates,
     ),
     appId: pluginConfig.appId,
+    descriptionHeader: pluginConfig.descriptionHeader,
+    descriptionFooter: pluginConfig.descriptionFooter,
   });
 
   if (!state.shouldPublish) {
@@ -136,16 +140,24 @@ export async function publish(pluginConfig, context) {
     });
 
     const metadata = resolveModMetadata(mod, state.target);
+    const titleOption = metadata.title;
+    metadata.title = localizedValue(titleOption, 'default');
     const publishedFileId = mod.workshopIds[state.target];
     const changenote = context.nextRelease.notes || context.nextRelease.version;
 
     const localized = [];
     for (const { code, filename } of mod.localizedTemplates ?? []) {
-      const localizedMarkdown = await compileModReadme(pluginConfig, modPath, overrides, filename);
+      const localizedMarkdown = await compileModReadme(
+        pluginConfig,
+        modPath,
+        overrides,
+        filename,
+        code,
+      );
       localized.push({
         code,
         language: languageInt(code),
-        title: metadata.title,
+        title: localizedValue(titleOption, code),
         description: await overrides.buildDescription({
           modPath,
           markdown: localizedMarkdown,

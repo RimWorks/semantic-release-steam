@@ -7,10 +7,25 @@
 /** Steam Workshop visibility flag (matches workshop_build_item VDF spec). */
 export type WorkshopVisibility = 0 | 1 | 2 | 3;
 
+/** Steam API language codes, minus `english`: the English slot is `default`. */
+export type SteamLanguageCode =
+  | 'german' | 'french' | 'italian' | 'koreana' | 'spanish' | 'schinese' | 'tchinese'
+  | 'russian' | 'thai' | 'japanese' | 'portuguese' | 'polish' | 'danish' | 'dutch'
+  | 'finnish' | 'norwegian' | 'swedish' | 'romanian' | 'turkish' | 'hungarian'
+  | 'czech' | 'brazilian' | 'bulgarian' | 'greek' | 'ukrainian';
+
+/**
+ * Text that can differ per language. A plain string applies to every language. A map needs a
+ * `default` entry, which is the English slot and the fallback for any code it omits.
+ */
+export type LocalizedText =
+  | string
+  | ({ default: string } & Partial<Record<SteamLanguageCode, string>>);
+
 /** Workshop metadata that can be set per-mod or per-target. */
 export interface WorkshopMetadata {
   /** Workshop item title. Only emitted if set. */
-  title?: string;
+  title?: LocalizedText;
   /** Path to a preview image (jpg/png), relative to the mod path or absolute. Defaults to `About/Preview.png`. */
   previewfile?: string;
   /** 0 = public, 1 = friends-only, 2 = private, 3 = unlisted. Only emitted if set. */
@@ -50,10 +65,10 @@ export interface PluginConfig {
   /** One or more mods to publish. */
   mods: ModConfig[];
 
-  /** String prepended to each mod's compiled README before BBCode conversion. */
-  descriptionHeader?: string;
-  /** String appended to each mod's compiled README. */
-  descriptionFooter?: string;
+  /** Text prepended to each mod's compiled README before BBCode conversion. */
+  descriptionHeader?: LocalizedText;
+  /** Text appended to each mod's compiled README. */
+  descriptionFooter?: LocalizedText;
   /**
    * URL template with `{branch}` placeholder. Asset paths matching `../.github/assets/`
    * in the README are rewritten to absolute URLs against this base before BBCode conversion.

@@ -579,3 +579,55 @@ test('publish with no localized template passes no localized entry to the update
     { name: 'MyMod', publishedFileId: '1', tags: ['QoL'] },
   ]);
 });
+
+test('publish gives each language its own header, footer and title', async () => {
+  const applyCalls = [];
+  const compileCalls = [];
+  const uploadCalls = [];
+
+  await plugin.publish(
+    {
+      appId: '294100',
+      branchTargets: { main: 'stable' },
+      descriptionHeader: { default: 'Spoilers below.', spanish: 'Spoilers abajo.' },
+      descriptionFooter: { default: 'Thanks for playing.' },
+      mods: [{
+        name: 'MyMod',
+        path: 'MyMod',
+        workshopIds: { stable: '1' },
+        title: { default: 'My Mod', spanish: 'Mi Mod' },
+      }],
+    },
+    {
+      branch: { name: 'main' },
+      cwd: '/repo',
+      env: { STEAM_USERNAME: 'u', STEAM_CONFIG_VDF: '/cv', STEAM_PASSWORD: 'secret' },
+      nextRelease: { version: '1.0.0', notes: '' },
+      logger: { log() {} },
+      discoverLocalizedTemplates: async () => [
+        { code: 'spanish', filename: 'README.spanish.template.md' },
+        { code: 'russian', filename: 'README.russian.template.md' },
+      ],
+      compileReadme: async opts => {
+        compileCalls.push({ template: opts.templateFilename, header: opts.header, footer: opts.footer });
+        return 'md';
+      },
+      buildSteamDescription: async opts => `bbcode:${opts.markdown}`,
+      stageModContent: async () => '/s',
+      uploadWorkshopItem: async opts => { uploadCalls.push(opts); },
+      applyWorkshopUpdates: async opts => { applyCalls.push(opts); },
+    },
+  );
+
+  assert.deepEqual(compileCalls, [
+    { template: undefined, header: 'Spoilers below.', footer: 'Thanks for playing.' },
+    { template: 'README.spanish.template.md', header: 'Spoilers abajo.', footer: 'Thanks for playing.' },
+    { template: 'README.russian.template.md', header: 'Spoilers below.', footer: 'Thanks for playing.' },
+  ]);
+
+  assert.equal(uploadCalls[0].title, 'My Mod');
+  assert.deepEqual(
+    applyCalls[0].mods[0].localized.map(entry => [entry.code, entry.title]),
+    [['spanish', 'Mi Mod'], ['russian', 'My Mod']],
+  );
+});

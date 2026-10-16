@@ -21,8 +21,8 @@
       "minItems": 1,
       "items": { "$ref": "#/definitions/ModConfig" }
     },
-    "descriptionHeader": { "type": "string" },
-    "descriptionFooter": { "type": "string" },
+    "descriptionHeader": { "$ref": "#/definitions/LocalizedText" },
+    "descriptionFooter": { "$ref": "#/definitions/LocalizedText" },
     "assetBaseUrlTemplate": {
       "type": "string",
       "description": "URL template with {branch} placeholder for rewriting relative asset paths."
@@ -54,11 +54,50 @@
     }
   },
   "definitions": {
+    "LocalizedText": {
+      "description": "Either one string for every language, or a map of Steam language code to string. A map requires a \"default\" entry, which is the English slot and the fallback for any code it leaves out. \"english\" is not a valid key.",
+      "oneOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "required": ["default"],
+          "additionalProperties": false,
+          "properties": {
+            "default": { "type": "string" },
+            "german": { "type": "string" },
+            "french": { "type": "string" },
+            "italian": { "type": "string" },
+            "koreana": { "type": "string" },
+            "spanish": { "type": "string" },
+            "schinese": { "type": "string" },
+            "tchinese": { "type": "string" },
+            "russian": { "type": "string" },
+            "thai": { "type": "string" },
+            "japanese": { "type": "string" },
+            "portuguese": { "type": "string" },
+            "polish": { "type": "string" },
+            "danish": { "type": "string" },
+            "dutch": { "type": "string" },
+            "finnish": { "type": "string" },
+            "norwegian": { "type": "string" },
+            "swedish": { "type": "string" },
+            "romanian": { "type": "string" },
+            "turkish": { "type": "string" },
+            "hungarian": { "type": "string" },
+            "czech": { "type": "string" },
+            "brazilian": { "type": "string" },
+            "bulgarian": { "type": "string" },
+            "greek": { "type": "string" },
+            "ukrainian": { "type": "string" }
+          }
+        }
+      ]
+    },
     "WorkshopMetadata": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "title": { "type": "string" },
+        "title": { "$ref": "#/definitions/LocalizedText" },
         "previewfile": {
           "type": "string",
           "description": "Preview image path. Defaults to <modPath>/About/Preview.png when that file exists."
@@ -88,7 +127,7 @@
           "additionalProperties": { "type": "string" },
           "description": "Map of branch-target name to Steam Workshop publishedfileid."
         },
-        "title": { "type": "string" },
+        "title": { "$ref": "#/definitions/LocalizedText" },
         "previewfile": { "type": "string" },
         "visibility": { "type": "integer", "enum": [0, 1, 2, 3] },
         "tags": { "type": "array", "items": { "type": "string" } },
