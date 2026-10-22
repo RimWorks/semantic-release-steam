@@ -4,7 +4,11 @@
   "title": "semantic-release-steam plugin config",
   "description": "Configuration for the semantic-release-steam plugin.",
   "type": "object",
-  "required": ["appId", "branchTargets", "mods"],
+  "required": [
+    "appId",
+    "branchTargets",
+    "mods"
+  ],
   "additionalProperties": false,
   "properties": {
     "appId": {
@@ -14,15 +18,23 @@
     "branchTargets": {
       "type": "object",
       "description": "Map of git branch name to workshop target key. Branches not in the map are skipped.",
-      "additionalProperties": { "type": "string" }
+      "additionalProperties": {
+        "type": "string"
+      }
     },
     "mods": {
       "type": "array",
       "minItems": 1,
-      "items": { "$ref": "#/definitions/ModConfig" }
+      "items": {
+        "$ref": "#/definitions/ModConfig"
+      }
     },
-    "descriptionHeader": { "$ref": "#/definitions/LocalizedText" },
-    "descriptionFooter": { "$ref": "#/definitions/LocalizedText" },
+    "descriptionHeader": {
+      "$ref": "#/definitions/LocalizedText"
+    },
+    "descriptionFooter": {
+      "$ref": "#/definitions/LocalizedText"
+    },
     "assetBaseUrlTemplate": {
       "type": "string",
       "description": "URL template with {branch} placeholder for rewriting relative asset paths."
@@ -32,7 +44,9 @@
       "oneOf": [
         {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         }
       ]
     },
@@ -51,44 +65,110 @@
       "type": "boolean",
       "default": false,
       "description": "Log SteamCMD stdout/stderr at info level."
+    },
+    "guardTimeoutSeconds": {
+      "type": "integer",
+      "minimum": 30,
+      "description": "How long to wait for the Steam Guard phone approval, per attempt. Defaults to 300."
+    },
+    "guardRetries": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "How many extra Steam Guard prompts to send after the first one times out. Defaults to 3."
     }
   },
   "definitions": {
     "LocalizedText": {
       "description": "Either one string for every language, or a map of Steam language code to string. A map requires a \"default\" entry, which is the English slot and the fallback for any code it leaves out. \"english\" is not a valid key.",
       "oneOf": [
-        { "type": "string" },
+        {
+          "type": "string"
+        },
         {
           "type": "object",
-          "required": ["default"],
+          "required": [
+            "default"
+          ],
           "additionalProperties": false,
           "properties": {
-            "default": { "type": "string" },
-            "german": { "type": "string" },
-            "french": { "type": "string" },
-            "italian": { "type": "string" },
-            "koreana": { "type": "string" },
-            "spanish": { "type": "string" },
-            "schinese": { "type": "string" },
-            "tchinese": { "type": "string" },
-            "russian": { "type": "string" },
-            "thai": { "type": "string" },
-            "japanese": { "type": "string" },
-            "portuguese": { "type": "string" },
-            "polish": { "type": "string" },
-            "danish": { "type": "string" },
-            "dutch": { "type": "string" },
-            "finnish": { "type": "string" },
-            "norwegian": { "type": "string" },
-            "swedish": { "type": "string" },
-            "romanian": { "type": "string" },
-            "turkish": { "type": "string" },
-            "hungarian": { "type": "string" },
-            "czech": { "type": "string" },
-            "brazilian": { "type": "string" },
-            "bulgarian": { "type": "string" },
-            "greek": { "type": "string" },
-            "ukrainian": { "type": "string" }
+            "default": {
+              "type": "string"
+            },
+            "german": {
+              "type": "string"
+            },
+            "french": {
+              "type": "string"
+            },
+            "italian": {
+              "type": "string"
+            },
+            "koreana": {
+              "type": "string"
+            },
+            "spanish": {
+              "type": "string"
+            },
+            "schinese": {
+              "type": "string"
+            },
+            "tchinese": {
+              "type": "string"
+            },
+            "russian": {
+              "type": "string"
+            },
+            "thai": {
+              "type": "string"
+            },
+            "japanese": {
+              "type": "string"
+            },
+            "portuguese": {
+              "type": "string"
+            },
+            "polish": {
+              "type": "string"
+            },
+            "danish": {
+              "type": "string"
+            },
+            "dutch": {
+              "type": "string"
+            },
+            "finnish": {
+              "type": "string"
+            },
+            "norwegian": {
+              "type": "string"
+            },
+            "swedish": {
+              "type": "string"
+            },
+            "romanian": {
+              "type": "string"
+            },
+            "turkish": {
+              "type": "string"
+            },
+            "hungarian": {
+              "type": "string"
+            },
+            "czech": {
+              "type": "string"
+            },
+            "brazilian": {
+              "type": "string"
+            },
+            "bulgarian": {
+              "type": "string"
+            },
+            "greek": {
+              "type": "string"
+            },
+            "ukrainian": {
+              "type": "string"
+            }
           }
         }
       ]
@@ -97,43 +177,85 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "title": { "$ref": "#/definitions/LocalizedText" },
+        "title": {
+          "$ref": "#/definitions/LocalizedText"
+        },
         "previewfile": {
           "type": "string",
           "description": "Preview image path. Defaults to <modPath>/About/Preview.png when that file exists."
         },
         "visibility": {
           "type": "integer",
-          "enum": [0, 1, 2, 3],
+          "enum": [
+            0,
+            1,
+            2,
+            3
+          ],
           "description": "0=public, 1=friends-only, 2=private, 3=unlisted"
         },
         "tags": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "Workshop tags. Defaults to every supportedVersions entry in <modPath>/About/About.xml, plus Mod."
         }
       }
     },
     "ModConfig": {
       "type": "object",
-      "required": ["name", "path", "workshopIds"],
+      "required": [
+        "name",
+        "path",
+        "workshopIds"
+      ],
       "additionalProperties": false,
-      "allOf": [{ "$ref": "#/definitions/WorkshopMetadata" }],
+      "allOf": [
+        {
+          "$ref": "#/definitions/WorkshopMetadata"
+        }
+      ],
       "properties": {
-        "name": { "type": "string" },
-        "path": { "type": "string" },
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
         "workshopIds": {
           "type": "object",
-          "additionalProperties": { "type": "string" },
+          "additionalProperties": {
+            "type": "string"
+          },
           "description": "Map of branch-target name to Steam Workshop publishedfileid."
         },
-        "title": { "$ref": "#/definitions/LocalizedText" },
-        "previewfile": { "type": "string" },
-        "visibility": { "type": "integer", "enum": [0, 1, 2, 3] },
-        "tags": { "type": "array", "items": { "type": "string" } },
+        "title": {
+          "$ref": "#/definitions/LocalizedText"
+        },
+        "previewfile": {
+          "type": "string"
+        },
+        "visibility": {
+          "type": "integer",
+          "enum": [
+            0,
+            1,
+            2,
+            3
+          ]
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "metadata": {
           "type": "object",
-          "additionalProperties": { "$ref": "#/definitions/WorkshopMetadata" },
+          "additionalProperties": {
+            "$ref": "#/definitions/WorkshopMetadata"
+          },
           "description": "Per-target metadata overrides. Keys must match values from branchTargets."
         }
       }

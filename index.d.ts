@@ -56,6 +56,10 @@ export type AssetDirNameTransform =
 export interface PluginConfig {
   /** Steam app ID (e.g. "294100" for RimWorld). */
   appId: string;
+  /** Seconds to wait for the Steam Guard phone approval, per attempt. Defaults to 300. */
+  guardTimeoutSeconds?: number;
+  /** Extra Steam Guard prompts to send after the first times out. Defaults to 3. */
+  guardRetries?: number;
   /**
    * Map of git branch name -> workshop target key. Branches not in the map are silently skipped
    * (semantic-release will still run other plugins). The target key is used to look up the

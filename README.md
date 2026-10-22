@@ -53,6 +53,24 @@ SteamCMD must have a saved login in its `config/config.vdf`. See the [SteamCMD W
 
 Put `README.template.md` in each mod directory. Add `.steamignore` there if you need to exclude files from the upload.
 
+### Steam Guard timing
+
+Publishing tags and descriptions signs in to Steam, which sends an approval prompt to your
+phone. A CI run does not warn you before that prompt appears. The options below set how long
+each prompt waits and how many prompts you get.
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `guardTimeoutSeconds` | `300` | How long one prompt waits for your approval. |
+| `guardRetries` | `3` | How many more prompts to send after one times out. |
+
+Each retry opens a new sign-in session, so a missed prompt is followed by a fresh one on your
+phone rather than one silent wait. With the defaults you get four prompts across 20 minutes.
+Set `guardRetries` to `0` for one prompt only. A failure that is not a timeout, such as a wrong
+password, fails immediately and is never retried.
+
+Setting `STEAM_REFRESH_TOKEN` skips the prompt entirely, and these options along with it.
+
 ### Localized descriptions
 
 Add a `README.<language>.template.md` file next to `README.template.md` to publish a translated description for that language. `README.template.md` itself always stays the English description.

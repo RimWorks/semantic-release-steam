@@ -7,6 +7,8 @@ import {
   addLocalizedUpdateFields,
   applyWorkshopUpdates,
   canPollForGuardApproval,
+  isGuardTimeout,
+  loginWithPassword,
   logOffAndWait,
   connectWithTimeout,
   verifyPublishedItem,
@@ -563,4 +565,98 @@ test('a session death mid-run rejects instead of hanging on a stuck sendUpdate',
   );
 
   assert.equal(disconnectCalls.length, 1);
+});
+
+function guardTimeout() {
+  return new Error('Steam Guard approval timed out');
+}
+
+function recordingLogger() {
+  const lines = [];
+  return { lines, logger: { log: line => lines.push(line) } };
+}
+
+test('loginWithPassword sends a new prompt after a timeout and returns the token that lands', async () => {
+  const { lines, logger } = recordingLogger();
+  let attempts = 0;
+  const start = async () => {
+    attempts += 1;
+    if (attempts < 3) throw guardTimeout();
+    return 'the-refresh-token';
+  };
+
+  const token = await loginWithPassword({
+    steamUsername: 'someone',
+    steamPassword: 'hunter2',
+    logger,
+    guardRetries: 3,
+    start,
+  });
+
+  assert.equal(token, 'the-refresh-token');
+  assert.equal(attempts, 3);
+  assert.equal(lines.filter(l => l.includes('Sending a new prompt')).length, 2);
+});
+
+test('loginWithPassword gives up after the configured number of retries', async () => {
+  const { logger } = recordingLogger();
+  let attempts = 0;
+  const start = async () => { attempts += 1; throw guardTimeout(); };
+
+  await assert.rejects(
+    loginWithPassword({ steamUsername: 'someone', steamPassword: 'hunter2', logger, guardRetries: 2, start }),
+    /Steam Guard approval timed out/,
+  );
+  assert.equal(attempts, 3);
+});
+
+test('loginWithPassword prompts once when retries are turned off', async () => {
+  const { logger } = recordingLogger();
+  let attempts = 0;
+  const start = async () => { attempts += 1; throw guardTimeout(); };
+
+  await assert.rejects(
+    loginWithPassword({ steamUsername: 'someone', steamPassword: 'hunter2', logger, guardRetries: 0, start }),
+    /Steam Guard approval timed out/,
+  );
+  assert.equal(attempts, 1);
+});
+
+test('loginWithPassword does not retry a failure that is not a timeout', async () => {
+  const { logger } = recordingLogger();
+  let attempts = 0;
+  const start = async () => { attempts += 1; throw new Error('InvalidPassword'); };
+
+  await assert.rejects(
+    loginWithPassword({ steamUsername: 'someone', steamPassword: 'wrong', logger, guardRetries: 3, start }),
+    /InvalidPassword/,
+  );
+  assert.equal(attempts, 1);
+});
+
+test('loginWithPassword passes the configured timeout to each attempt', async () => {
+  const { logger } = recordingLogger();
+  const seen = [];
+  const start = async ({ guardTimeoutMs }) => {
+    seen.push(guardTimeoutMs);
+    if (seen.length < 2) throw guardTimeout();
+    return 'token';
+  };
+
+  await loginWithPassword({
+    steamUsername: 'someone',
+    steamPassword: 'hunter2',
+    logger,
+    guardTimeoutMs: 45_000,
+    guardRetries: 3,
+    start,
+  });
+
+  assert.deepEqual(seen, [45_000, 45_000]);
+});
+
+test('isGuardTimeout tells a timeout apart from any other failure', () => {
+  assert.equal(isGuardTimeout(guardTimeout()), true);
+  assert.equal(isGuardTimeout(new Error('InvalidPassword')), false);
+  assert.equal(isGuardTimeout('Steam Guard approval timed out'), false);
 });

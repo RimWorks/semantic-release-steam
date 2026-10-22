@@ -225,6 +225,10 @@ export async function publish(pluginConfig, context) {
       appId: pluginConfig.appId,
       mods: taggableMods,
       logger: context.logger,
+      guardTimeoutMs: pluginConfig.guardTimeoutSeconds === undefined
+        ? undefined
+        : pluginConfig.guardTimeoutSeconds * 1000,
+      guardRetries: pluginConfig.guardRetries,
     });
   }
 
