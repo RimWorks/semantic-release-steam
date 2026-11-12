@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   test-matrix:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     strategy:
       matrix:
         node: ['20', '22']
@@ -35,7 +35,7 @@ jobs:
     name: test
     needs: test-matrix
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - name: Check matrix result
         run: test "${{ needs.test-matrix.result }}" = "success"
